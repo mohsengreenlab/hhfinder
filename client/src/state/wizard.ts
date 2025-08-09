@@ -48,6 +48,11 @@ export interface WizardState {
   // Current step
   currentStep: WizardStep;
   
+  // Transition state
+  isTransitioning: boolean;
+  transitionFrom: WizardStep | null;
+  transitionTo: WizardStep | null;
+  
   // Step 1 data
   userInput: string;
   
@@ -73,6 +78,10 @@ export interface WizardState {
   setFilters: (filters: Partial<WizardFilters>) => void;
   setSearchResults: (results: any[], totalFound: number) => void;
   setCurrentVacancyIndex: (index: number) => void;
+  
+  // Transition actions
+  startTransition: (from: WizardStep, to: WizardStep) => void;
+  completeTransition: () => void;
   
   // Navigation
   goBack: () => void;
@@ -123,6 +132,9 @@ export const useWizardStore = create<WizardState>()(
     (set, get) => ({
       // Initial state
       currentStep: 'keywords',
+      isTransitioning: false,
+      transitionFrom: null,
+      transitionTo: null,
       userInput: '',
       aiSuggestions: [],
       selectedKeywords: [],
@@ -171,6 +183,25 @@ export const useWizardStore = create<WizardState>()(
       
       setCurrentVacancyIndex: (index) => set({ currentVacancyIndex: index }),
       
+      // Transition actions
+      startTransition: (from, to) => set({
+        isTransitioning: true,
+        transitionFrom: from,
+        transitionTo: to
+      }),
+      
+      completeTransition: () => {
+        const { transitionTo } = get();
+        if (transitionTo) {
+          set({
+            currentStep: transitionTo,
+            isTransitioning: false,
+            transitionFrom: null,
+            transitionTo: null
+          });
+        }
+      },
+      
       // Navigation
       goBack: () => {
         const { currentStep } = get();
@@ -188,23 +219,32 @@ export const useWizardStore = create<WizardState>()(
       },
       
       goNext: () => {
-        const { currentStep } = get();
+        const { currentStep, startTransition } = get();
+        let nextStep: WizardStep | null = null;
+        
         switch (currentStep) {
           case 'keywords':
-            set({ currentStep: 'confirm' });
+            nextStep = 'confirm';
             break;
           case 'confirm':
-            set({ currentStep: 'filters' });
+            nextStep = 'filters';
             break;
           case 'filters':
-            set({ currentStep: 'results' });
+            nextStep = 'results';
             break;
+        }
+        
+        if (nextStep) {
+          startTransition(currentStep, nextStep);
         }
       },
       
       // Reset
       reset: () => set({
         currentStep: 'keywords',
+        isTransitioning: false,
+        transitionFrom: null,
+        transitionTo: null,
         userInput: '',
         aiSuggestions: [],
         selectedKeywords: [],
