@@ -62,12 +62,6 @@ export default function Step4Viewer() {
   const [generatedLetter, setGeneratedLetter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(0);
-    setCurrentVacancyIndex(0);
-  }, [hhFilters]);
-
   // Convert filters to HH format
   const { data: hhFilters, isLoading: isMatchingFilters } = useQuery<FilterMatchResponse>({
     queryKey: ['/api/filters/match'],
@@ -126,6 +120,12 @@ export default function Step4Viewer() {
     },
     enabled: selectedKeywords.length > 0
   });
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+    setCurrentVacancyIndex(0);
+  }, [hhFilters, setCurrentVacancyIndex]);
 
   // Search vacancies
   const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery<HHVacanciesResponse>({

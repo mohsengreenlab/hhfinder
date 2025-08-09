@@ -35,6 +35,8 @@ export interface FilterMatchRequest {
   enableSalaryFilter?: boolean;
   enableMetroFilter?: boolean;
   enableLabelFilter?: boolean;
+  enableEducationFilter?: boolean;
+  enableWorkFormatFilter?: boolean;
   
   // Existing filters
   locationText?: string;
@@ -56,6 +58,10 @@ export interface FilterMatchRequest {
   searchFields?: string[];
   vacancyLabels?: string[];
   employerName?: string;
+  
+  // Education and work format filters
+  educationLevel?: string;
+  workFormats?: string[];
 }
 
 export interface FilterMatchResponse {
