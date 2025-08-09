@@ -487,6 +487,18 @@ export default function Step4Viewer() {
                     <FileText className="mr-2 h-4 w-4" />
                     Generate Cover Letter
                   </Button>
+                  <Button
+                    onClick={() => {
+                      const applyUrl = vacancyDetail?.apply_alternate_url || 
+                        `https://hh.ru/applicant/vacancy_response?vacancyId=${vacancyDetail?.id}`;
+                      window.open(applyUrl, '_blank');
+                    }}
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    data-testid="apply-now-button"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Apply Now
+                  </Button>
                 </div>
                 
                 <Button

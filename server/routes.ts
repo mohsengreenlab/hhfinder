@@ -337,6 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         employer: { name: data.employer?.name },
         area: { name: data.area?.name },
         alternate_url: data.alternate_url,
+        apply_alternate_url: data.apply_alternate_url,
         descriptionHtmlSanitized,
         key_skills: data.key_skills || [],
         salary: data.salary

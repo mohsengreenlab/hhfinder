@@ -112,6 +112,7 @@ export interface HHVacancyDetail {
   employer: { name: string };
   area: { name: string };
   alternate_url: string;
+  apply_alternate_url?: string;
   descriptionHtmlSanitized: string;
   key_skills: Array<{ name: string }>;
   salary: {
