@@ -265,7 +265,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page: parseInt(req.query.page as string) || 0,
         specialization: req.query.specialization as string,
         metro: req.query.metro as string,
-        employer_id: req.query.employer_id as string
+        employer_id: req.query.employer_id as string,
+        search_field: req.query.search_field as string[],
+        label: req.query.label as string[]
       };
 
       const { data, timing } = await hhClient.searchVacancies(params);

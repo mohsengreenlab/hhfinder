@@ -9,6 +9,16 @@ export interface SelectedKeyword {
 }
 
 export interface WizardFilters {
+  // Filter enablement flags
+  enableLocationFilter: boolean;
+  enableExperienceFilter: boolean;
+  enableEmploymentFilter: boolean;
+  enableScheduleFilter: boolean;
+  enableSalaryFilter: boolean;
+  enableMetroFilter: boolean;
+  enableLabelFilter: boolean;
+  
+  // Existing filters
   locationText: string;
   remoteOnly: boolean;
   hybridOk: boolean;
@@ -20,6 +30,12 @@ export interface WizardFilters {
   onlyWithSalary: boolean;
   period: number;
   orderBy: string;
+  
+  // New filters
+  metroStation: string;
+  searchFields: string[];
+  vacancyLabels: string[];
+  employerName: string;
 }
 
 export interface WizardState {
@@ -61,6 +77,16 @@ export interface WizardState {
 }
 
 const defaultFilters: WizardFilters = {
+  // Filter enablement flags (disabled by default for "see all results")
+  enableLocationFilter: false,
+  enableExperienceFilter: false,
+  enableEmploymentFilter: false,
+  enableScheduleFilter: false,
+  enableSalaryFilter: false,
+  enableMetroFilter: false,
+  enableLabelFilter: false,
+  
+  // Existing filters
   locationText: '',
   remoteOnly: false,
   hybridOk: false,
@@ -71,7 +97,13 @@ const defaultFilters: WizardFilters = {
   currency: 'RUR',
   onlyWithSalary: false,
   period: 7,
-  orderBy: 'relevance'
+  orderBy: 'relevance',
+  
+  // New filters
+  metroStation: '',
+  searchFields: [],
+  vacancyLabels: [],
+  employerName: ''
 };
 
 export const useWizardStore = create<WizardState>()(

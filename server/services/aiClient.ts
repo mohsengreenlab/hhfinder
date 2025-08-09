@@ -83,6 +83,8 @@ Sort order: ${JSON.stringify(dictionaries.vacancy_search_order)}
 
 The user has selected these job keywords: ${answers.selectedKeywords?.join(', ') || 'none'}
 
+Important: Only include filter parameters in the response if the corresponding enableXFilter flag is true. For example, only include "area" if enableLocationFilter is true.
+
 Return a JSON object with correct IDs from dictionaries. For the "text" field, combine the selected keywords into a search string:
 {
   "text": "combine selected keywords into search string",
@@ -94,7 +96,11 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
   "currency": "RUR",
   "only_with_salary": true/false,
   "period": number_of_days,
-  "order_by": "sort_ID"
+  "order_by": "sort_ID",
+  "metro": "metro_station_id",
+  "search_field": ["field_ID1", "field_ID2"],
+  "label": ["label_ID1", "label_ID2"],
+  "employer_id": "company_name_or_id"
 }
 `;
 
@@ -119,19 +125,41 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
       }
     } catch (error) {
       console.error('Filter mapping failed:', error);
-      // Return basic fallback with proper keyword combination
-      return {
-        text: answers.selectedKeywords?.join(' OR ') || '',
-        area: answers.locationText?.includes('Москва') ? '1' : undefined,
-        experience: 'doesNotMatter',
-        employment: ['full'],
-        schedule: ['fullDay'],
-        salary: answers.incomeNumber,
-        currency: answers.currency || 'RUR',
-        only_with_salary: answers.onlyWithSalary || false,
-        period: answers.period || 7,
-        order_by: answers.orderBy || 'relevance'
+      // Return basic fallback with proper keyword combination, but only include enabled filters
+      const fallback: any = {
+        text: answers.selectedKeywords?.join(' OR ') || ''
       };
+      
+      // Only include filters that are explicitly enabled
+      if (answers.enableLocationFilter && answers.locationText) {
+        fallback.area = answers.locationText?.includes('Москва') ? '1' : undefined;
+      }
+      if (answers.enableExperienceFilter && answers.experienceText) {
+        fallback.experience = 'doesNotMatter';
+      }
+      if (answers.enableEmploymentFilter && answers.employmentTypes?.length) {
+        fallback.employment = ['full'];
+      }
+      if (answers.enableScheduleFilter && answers.scheduleTypes?.length) {
+        fallback.schedule = ['fullDay'];
+      }
+      if (answers.enableSalaryFilter && answers.incomeNumber) {
+        fallback.salary = answers.incomeNumber;
+        fallback.currency = answers.currency || 'RUR';
+        fallback.only_with_salary = answers.onlyWithSalary || false;
+      }
+      if (answers.enableMetroFilter && answers.metroStation) {
+        fallback.metro = answers.metroStation;
+      }
+      if (answers.enableLabelFilter && answers.vacancyLabels?.length) {
+        fallback.label = answers.vacancyLabels;
+      }
+      
+      // Always include basic search params
+      fallback.period = answers.period || 7;
+      fallback.order_by = answers.orderBy || 'relevance';
+      
+      return fallback;
     }
   }
 

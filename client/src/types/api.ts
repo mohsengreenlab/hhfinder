@@ -18,10 +18,23 @@ export interface HHDictionaries {
   schedule: Array<{ id: string; name: string }>;
   vacancy_search_order: Array<{ id: string; name: string }>;
   currency: Array<{ id: string; name: string }>;
+  vacancy_label?: Array<{ id: string; name: string }>;
+  vacancy_search_fields?: Array<{ id: string; name: string }>;
 }
 
 export interface FilterMatchRequest {
   selectedKeywords: string[];
+  
+  // Filter enablement flags
+  enableLocationFilter?: boolean;
+  enableExperienceFilter?: boolean;
+  enableEmploymentFilter?: boolean;
+  enableScheduleFilter?: boolean;
+  enableSalaryFilter?: boolean;
+  enableMetroFilter?: boolean;
+  enableLabelFilter?: boolean;
+  
+  // Existing filters
   locationText?: string;
   remoteHybrid?: {
     remoteOnly: boolean;
@@ -35,6 +48,12 @@ export interface FilterMatchRequest {
   onlyWithSalary?: boolean;
   period?: number;
   orderBy?: string;
+  
+  // New filters
+  metroStation?: string;
+  searchFields?: string[];
+  vacancyLabels?: string[];
+  employerName?: string;
 }
 
 export interface FilterMatchResponse {
@@ -48,6 +67,10 @@ export interface FilterMatchResponse {
   only_with_salary?: boolean;
   period?: number;
   order_by?: string;
+  metro?: string;
+  search_field?: string[];
+  label?: string[];
+  employer_id?: string;
 }
 
 export interface HHVacancyListItem {

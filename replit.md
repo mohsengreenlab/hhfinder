@@ -46,8 +46,8 @@ Preferred communication style: Simple, everyday language.
 - **Endpoints**: 
   - Keyword suggestions (`/suggests/vacancy_search_keyword`)
   - Area/location data (`/areas`)
-  - Dictionary data (`/dictionaries`)
-  - Vacancy search and details
+  - Dictionary data (`/dictionaries`) including vacancy labels and search fields
+  - Vacancy search and details with advanced filtering (metro, employer, labels, search fields)
 - **Headers**: Russian locale (`Accept-Language: ru`) and custom User-Agent handling
 
 ### Google Gemini AI Integration
@@ -69,6 +69,11 @@ Preferred communication style: Simple, everyday language.
 - **Problem**: Complex job search with many parameters can overwhelm users
 - **Solution**: Progressive disclosure through a 4-step wizard (keywords → confirmation → filters → results)
 - **Benefits**: Better user experience, reduced cognitive load, ability to refine searches iteratively
+
+### Optional Filter System with Checkboxes
+- **Problem**: Users sometimes want to see all results without restrictive filters
+- **Solution**: Each filter category has an enable/disable toggle switch, filters are disabled by default
+- **Benefits**: Users can choose to apply only relevant filters, "see all results" mode when no filters enabled
 
 ### Intelligent Keyword Verification
 - **Problem**: AI-generated job titles may not match actual market terms

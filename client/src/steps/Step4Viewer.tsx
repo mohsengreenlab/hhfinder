@@ -68,6 +68,17 @@ export default function Step4Viewer() {
     queryFn: async () => {
       const filterRequest: FilterMatchRequest = {
         selectedKeywords: selectedKeywords.map(k => k.text),
+        
+        // Filter enablement flags
+        enableLocationFilter: filters.enableLocationFilter,
+        enableExperienceFilter: filters.enableExperienceFilter,
+        enableEmploymentFilter: filters.enableEmploymentFilter,
+        enableScheduleFilter: filters.enableScheduleFilter,
+        enableSalaryFilter: filters.enableSalaryFilter,
+        enableMetroFilter: filters.enableMetroFilter,
+        enableLabelFilter: filters.enableLabelFilter,
+        
+        // Existing filters
         locationText: filters.locationText,
         remoteHybrid: {
           remoteOnly: filters.remoteOnly,
@@ -80,7 +91,13 @@ export default function Step4Viewer() {
         scheduleTypes: filters.scheduleTypes,
         onlyWithSalary: filters.onlyWithSalary,
         period: filters.period,
-        orderBy: filters.orderBy
+        orderBy: filters.orderBy,
+        
+        // New filters
+        metroStation: filters.metroStation,
+        searchFields: filters.searchFields,
+        vacancyLabels: filters.vacancyLabels,
+        employerName: filters.employerName
       };
 
       const response = await fetch('/api/filters/match', {

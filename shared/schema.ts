@@ -35,11 +35,24 @@ export const hhDictionariesSchema = z.object({
   employment: z.array(hhDictionaryItemSchema),
   schedule: z.array(hhDictionaryItemSchema),
   vacancy_search_order: z.array(hhDictionaryItemSchema),
-  currency: z.array(hhDictionaryItemSchema)
+  currency: z.array(hhDictionaryItemSchema),
+  vacancy_label: z.array(hhDictionaryItemSchema).optional(),
+  vacancy_search_fields: z.array(hhDictionaryItemSchema).optional()
 });
 
 export const filterMatchRequestSchema = z.object({
   selectedKeywords: z.array(z.string()),
+  
+  // Filter enablement flags
+  enableLocationFilter: z.boolean().optional(),
+  enableExperienceFilter: z.boolean().optional(),
+  enableEmploymentFilter: z.boolean().optional(),
+  enableScheduleFilter: z.boolean().optional(),
+  enableSalaryFilter: z.boolean().optional(),
+  enableMetroFilter: z.boolean().optional(),
+  enableLabelFilter: z.boolean().optional(),
+  
+  // Existing filters
   locationText: z.string().optional(),
   remoteHybrid: z.object({
     remoteOnly: z.boolean(),
@@ -52,7 +65,13 @@ export const filterMatchRequestSchema = z.object({
   scheduleTypes: z.array(z.string()).optional(),
   onlyWithSalary: z.boolean().optional(),
   period: z.number().optional(),
-  orderBy: z.string().optional()
+  orderBy: z.string().optional(),
+  
+  // New filters
+  metroStation: z.string().optional(),
+  searchFields: z.array(z.string()).optional(),
+  vacancyLabels: z.array(z.string()).optional(),
+  employerName: z.string().optional()
 });
 
 export const filterMatchResponseSchema = z.object({
@@ -65,7 +84,11 @@ export const filterMatchResponseSchema = z.object({
   currency: z.string().optional(),
   only_with_salary: z.boolean().optional(),
   period: z.number().optional(),
-  order_by: z.string().optional()
+  order_by: z.string().optional(),
+  metro: z.string().optional(),
+  search_field: z.array(z.string()).optional(),
+  label: z.array(z.string()).optional(),
+  employer_id: z.string().optional()
 });
 
 export const hhVacancyListItemSchema = z.object({
