@@ -17,6 +17,8 @@ export interface WizardFilters {
   enableSalaryFilter: boolean;
   enableMetroFilter: boolean;
   enableLabelFilter: boolean;
+  enableEducationFilter: boolean;
+  enableWorkFormatFilter: boolean;
   
   // Existing filters
   locationText: string;
@@ -36,6 +38,10 @@ export interface WizardFilters {
   searchFields: string[];
   vacancyLabels: string[];
   employerName: string;
+  
+  // Education and work format filters
+  educationLevel: string;
+  workFormats: string[];
 }
 
 export interface WizardState {
@@ -85,6 +91,8 @@ const defaultFilters: WizardFilters = {
   enableSalaryFilter: false,
   enableMetroFilter: false,
   enableLabelFilter: false,
+  enableEducationFilter: false,
+  enableWorkFormatFilter: false,
   
   // Existing filters
   locationText: '',
@@ -103,7 +111,11 @@ const defaultFilters: WizardFilters = {
   metroStation: '',
   searchFields: [],
   vacancyLabels: [],
-  employerName: ''
+  employerName: '',
+  
+  // Education and work format filters
+  educationLevel: '',
+  workFormats: []
 };
 
 export const useWizardStore = create<WizardState>()(

@@ -100,7 +100,9 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
   "metro": "metro_station_id",
   "search_field": ["field_ID1", "field_ID2"],
   "label": ["label_ID1", "label_ID2"],
-  "employer_id": "company_name_or_id"
+  "employer_id": "company_name_or_id",
+  "education_level": "education_ID",
+  "working_time_modes": ["mode_ID1", "mode_ID2"]
 }
 `;
 
@@ -153,6 +155,12 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
       }
       if (answers.enableLabelFilter && answers.vacancyLabels?.length) {
         fallback.label = answers.vacancyLabels;
+      }
+      if (answers.enableEducationFilter && answers.educationLevel) {
+        fallback.education_level = answers.educationLevel;
+      }
+      if (answers.enableWorkFormatFilter && answers.workFormats?.length) {
+        fallback.working_time_modes = answers.workFormats;
       }
       
       // Always include basic search params

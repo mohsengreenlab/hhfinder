@@ -20,6 +20,8 @@ export interface HHDictionaries {
   currency: Array<{ id: string; name: string }>;
   vacancy_label?: Array<{ id: string; name: string }>;
   vacancy_search_fields?: Array<{ id: string; name: string }>;
+  education_level?: Array<{ id: string; name: string }>;
+  working_time_modes?: Array<{ id: string; name: string }>;
 }
 
 export interface FilterMatchRequest {

@@ -37,7 +37,9 @@ export const hhDictionariesSchema = z.object({
   vacancy_search_order: z.array(hhDictionaryItemSchema),
   currency: z.array(hhDictionaryItemSchema),
   vacancy_label: z.array(hhDictionaryItemSchema).optional(),
-  vacancy_search_fields: z.array(hhDictionaryItemSchema).optional()
+  vacancy_search_fields: z.array(hhDictionaryItemSchema).optional(),
+  education_level: z.array(hhDictionaryItemSchema).optional(),
+  working_time_modes: z.array(hhDictionaryItemSchema).optional()
 });
 
 export const filterMatchRequestSchema = z.object({
@@ -51,6 +53,8 @@ export const filterMatchRequestSchema = z.object({
   enableSalaryFilter: z.boolean().optional(),
   enableMetroFilter: z.boolean().optional(),
   enableLabelFilter: z.boolean().optional(),
+  enableEducationFilter: z.boolean().optional(),
+  enableWorkFormatFilter: z.boolean().optional(),
   
   // Existing filters
   locationText: z.string().optional(),
@@ -71,7 +75,11 @@ export const filterMatchRequestSchema = z.object({
   metroStation: z.string().optional(),
   searchFields: z.array(z.string()).optional(),
   vacancyLabels: z.array(z.string()).optional(),
-  employerName: z.string().optional()
+  employerName: z.string().optional(),
+  
+  // Education and work format filters
+  educationLevel: z.string().optional(),
+  workFormats: z.array(z.string()).optional()
 });
 
 export const filterMatchResponseSchema = z.object({

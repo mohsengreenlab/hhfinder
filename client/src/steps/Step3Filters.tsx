@@ -25,10 +25,14 @@ export default function Step3Filters() {
     enableSalaryFilter: filters.enableSalaryFilter ?? false,
     enableMetroFilter: filters.enableMetroFilter ?? false,
     enableLabelFilter: filters.enableLabelFilter ?? false,
+    enableEducationFilter: filters.enableEducationFilter ?? false,
+    enableWorkFormatFilter: filters.enableWorkFormatFilter ?? false,
     metroStation: filters.metroStation ?? '',
     searchFields: filters.searchFields ?? [],
     vacancyLabels: filters.vacancyLabels ?? [],
-    employerName: filters.employerName ?? ''
+    employerName: filters.employerName ?? '',
+    educationLevel: filters.educationLevel ?? '',
+    workFormats: filters.workFormats ?? []
   };
   
   // Local form state
@@ -492,6 +496,100 @@ export default function Step3Filters() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Education Level Filter */}
+          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <Filter className="h-5 w-5 text-slate-600" />
+                <Label className="text-lg font-semibold text-slate-800">Education Level</Label>
+              </div>
+              <Switch
+                checked={localFilters.enableEducationFilter}
+                onCheckedChange={(checked) => 
+                  setLocalFilters({...localFilters, enableEducationFilter: checked})
+                }
+                data-testid="education-filter-switch"
+              />
+            </div>
+            
+            {localFilters.enableEducationFilter && (
+              <div>
+                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                  Required Education Level
+                </Label>
+                <Select
+                  value={localFilters.educationLevel}
+                  onValueChange={(value) => setLocalFilters({
+                    ...localFilters,
+                    educationLevel: value
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select education level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dictionaries?.education_level?.map((level) => (
+                      <SelectItem key={level.id} value={level.id}>
+                        {level.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Work Format Filter */}
+          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <Filter className="h-5 w-5 text-slate-600" />
+                <Label className="text-lg font-semibold text-slate-800">Work Format</Label>
+              </div>
+              <Switch
+                checked={localFilters.enableWorkFormatFilter}
+                onCheckedChange={(checked) => 
+                  setLocalFilters({...localFilters, enableWorkFormatFilter: checked})
+                }
+                data-testid="work-format-filter-switch"
+              />
+            </div>
+            
+            {localFilters.enableWorkFormatFilter && (
+              <div>
+                <Label className="block text-sm font-medium text-slate-700 mb-3">
+                  Work Schedule Options
+                </Label>
+                <div className="grid grid-cols-1 gap-2">
+                  {dictionaries?.working_time_modes?.map((mode) => (
+                    <div key={mode.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`work-format-${mode.id}`}
+                        checked={localFilters.workFormats.includes(mode.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setLocalFilters({
+                              ...localFilters,
+                              workFormats: [...localFilters.workFormats, mode.id]
+                            });
+                          } else {
+                            setLocalFilters({
+                              ...localFilters,
+                              workFormats: localFilters.workFormats.filter(id => id !== mode.id)
+                            });
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`work-format-${mode.id}`} className="text-sm">
+                        {mode.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* General Search Settings */}
