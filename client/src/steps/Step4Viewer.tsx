@@ -524,7 +524,7 @@ export default function Step4Viewer() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-slate-600">Generate a personalized cover letter in Russian for this position</p>
+            <p className="text-slate-600">Generate a personalized cover letter for this position using AI or custom prompts</p>
           </div>
 
           {/* Prompt Templates */}
@@ -553,13 +553,18 @@ export default function Step4Viewer() {
             </div>
             
             {selectedPromptTemplate === 'custom' && (
-              <Textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Write a professional cover letter highlighting relevant experience and enthusiasm for the role..."
-                className="h-24 text-sm"
-                data-testid="custom-prompt-textarea"
-              />
+              <div>
+                <Textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Write your custom instructions for the cover letter. You can use these placeholders: {{POSITION}}, {{COMPANY}}, {{LOCATION}}, {{SKILLS}}, {{DESCRIPTION}}. Example: 'Write a professional cover letter for {{POSITION}} at {{COMPANY}}. Focus on my experience with {{SKILLS}} and mention points from {{DESCRIPTION}}.'"
+                  className="h-32 text-sm"
+                  data-testid="custom-prompt-textarea"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  Tip: Use placeholders like {String("{{POSITION}}, {{COMPANY}}, {{SKILLS}}, {{DESCRIPTION}}")} to reference job details
+                </p>
+              </div>
             )}
           </div>
 

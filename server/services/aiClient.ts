@@ -199,8 +199,8 @@ Requirements:
 - Professional tone
 `;
 
-    const userPrompt = request.customPrompt || `
-Write a cover letter for this job:
+    let userPrompt = request.customPrompt || `
+Write a professional cover letter for this job:
 Position: ${request.name}
 Company: ${request.employerName}
 Location: ${request.areaName}
@@ -211,6 +211,16 @@ ${request.plainDescription.substring(0, 1000)}
 
 ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
 `;
+
+    // Replace placeholders in custom prompts
+    if (request.customPrompt) {
+      userPrompt = request.customPrompt
+        .replace(/\{\{POSITION\}\}/g, request.name)
+        .replace(/\{\{COMPANY\}\}/g, request.employerName)
+        .replace(/\{\{LOCATION\}\}/g, request.areaName)
+        .replace(/\{\{SKILLS\}\}/g, request.skillsList.join(', '))
+        .replace(/\{\{DESCRIPTION\}\}/g, request.plainDescription.substring(0, 1500));
+    }
 
     try {
       // Use a simpler prompt format that works better with Gemini
