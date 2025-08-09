@@ -1,10 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
+const apiKey = process.env.GOOGLE_API_KEY || '';
+if (!apiKey) {
+  console.error('GOOGLE_API_KEY not found in environment variables');
+} else {
+  console.log('Google API key loaded, length:', apiKey.length);
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export class AIClient {
-  private model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  private proModel = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+  private model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  private proModel = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
   async generateJobTitles(userInput: string): Promise<string[]> {
     const prompt = `
@@ -206,22 +213,18 @@ ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
 `;
 
     try {
-      const result = await this.proModel.generateContent({
-        contents: [
-          { role: 'system', parts: [{ text: systemPrompt }] },
-          { role: 'user', parts: [{ text: userPrompt }] }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.8,
-          maxOutputTokens: 300,
-        },
-      });
-
+      // Use a simpler prompt format that works better with Gemini
+      const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+      
+      const result = await this.proModel.generateContent(fullPrompt);
       return result.response.text().trim();
     } catch (error) {
       console.error('Cover letter generation failed:', error);
+      console.error('Error details:', {
+        status: (error as any)?.status,
+        statusText: (error as any)?.statusText,
+        message: error instanceof Error ? error.message : String(error)
+      });
       throw new Error('Failed to generate cover letter');
     }
   }
