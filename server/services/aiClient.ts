@@ -225,8 +225,42 @@ ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
         statusText: (error as any)?.statusText,
         message: error instanceof Error ? error.message : String(error)
       });
+      
+      // If rate limited, provide a template-based fallback
+      if ((error as any)?.status === 429) {
+        return this.generateFallbackCoverLetter(request);
+      }
+      
       throw new Error('Failed to generate cover letter');
     }
+  }
+
+  private generateFallbackCoverLetter(request: {
+    name: string;
+    employerName: string;
+    areaName: string;
+    skillsList: string[];
+    plainDescription: string;
+    userProfile?: string;
+    customPrompt?: string;
+  }): string {
+    // Generate a professional template-based cover letter when AI is rate-limited
+    const skills = request.skillsList.slice(0, 4).join(', ');
+    const hasProfile = request.userProfile && request.userProfile.trim().length > 0;
+    
+    return `Dear Hiring Manager,
+
+I am writing to express my strong interest in the ${request.name} position at ${request.employerName}${request.areaName ? ` in ${request.areaName}` : ''}. Based on the job requirements, I believe my skills and experience make me an excellent candidate for this role.
+
+My technical expertise includes ${skills}, which align well with the position requirements. ${hasProfile ? `${request.userProfile!.trim()}` : 'I am passionate about delivering high-quality solutions and contributing to team success.'} I am particularly excited about the opportunity to work with your team and contribute to ${request.employerName}'s continued growth.
+
+I would welcome the opportunity to discuss how my skills and enthusiasm can contribute to your team's success. Thank you for considering my application, and I look forward to hearing from you soon.
+
+Best regards,
+[Your Name]
+
+---
+Note: This cover letter was generated using a template due to AI service rate limits. For personalized AI-generated letters, please try again in a few minutes.`;
   }
 }
 

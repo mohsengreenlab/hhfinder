@@ -6,6 +6,17 @@ This is an AI-powered job search application that helps users find vacancies on 
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+**Migration to Replit Environment (January 2025):**
+- Successfully migrated from Replit Agent to standard Replit environment
+- Fixed JavaScript initialization error in Step4Viewer component (hhFilters variable scoping)
+- Updated TypeScript definitions to include missing filter properties (enableEducationFilter, enableWorkFormatFilter, educationLevel, workFormats)
+- Configured Google Gemini API integration with proper environment variable (GOOGLE_API_KEY)
+- Updated AI models to use supported versions (gemini-1.5-flash, gemini-1.5-pro instead of 2.5 versions)
+- Implemented fallback cover letter generation for rate-limited scenarios
+- All core functionality verified working: keyword generation, filter matching, vacancy search, cover letter generation
+
 # System Architecture
 
 ## Frontend Architecture
