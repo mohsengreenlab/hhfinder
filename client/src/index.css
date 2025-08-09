@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(210 20% 98%);
+  --foreground: hsl(215 25% 27%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(215 25% 27%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(215 25% 27%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(210 20% 98%);
+  --secondary-foreground: hsl(215 19% 35%);
+  --muted: hsl(210 20% 96%);
+  --muted-foreground: hsl(215 19% 35%);
+  --accent: hsl(210 20% 96%);
+  --accent-foreground: hsl(215 19% 35%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(214 32% 91%);
+  --input: hsl(214 32% 91%);
+  --ring: hsl(217 91% 60%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius: 0.75rem;
+  
+  /* Primary colors from design */
+  --primary-50: hsl(214 100% 97%);
+  --primary-500: hsl(217 91% 60%);
+  --primary-600: hsl(224 76% 48%);
+  --primary-700: hsl(226 71% 40%);
+  
+  /* Additional colors */
+  --slate-50: hsl(210 20% 98%);
+  --slate-200: hsl(214 32% 91%);
+  --slate-300: hsl(213 27% 84%);
+  --slate-400: hsl(215 20% 65%);
+  --slate-500: hsl(215 16% 47%);
+  --slate-600: hsl(215 19% 35%);
+  --slate-700: hsl(215 25% 27%);
+  --slate-800: hsl(217 33% 17%);
+  
+  --emerald-600: hsl(158 64% 52%);
+  --emerald-700: hsl(158 64% 44%);
+}
+
+.dark {
+  --background: hsl(217 33% 17%);
+  --foreground: hsl(213 31% 91%);
+  --card: hsl(217 33% 17%);
+  --card-foreground: hsl(213 31% 91%);
+  --popover: hsl(217 33% 17%);
+  --popover-foreground: hsl(213 31% 91%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(215 27% 32%);
+  --secondary-foreground: hsl(213 31% 91%);
+  --muted: hsl(215 27% 32%);
+  --muted-foreground: hsl(217 9% 61%);
+  --accent: hsl(215 27% 32%);
+  --accent-foreground: hsl(213 31% 91%);
+  --destructive: hsl(0 62% 30%);
+  --destructive-foreground: hsl(213 31% 91%);
+  --border: hsl(215 27% 32%);
+  --input: hsl(215 27% 32%);
+  --ring: hsl(217 91% 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-spin-slow {
+    animation: spin 2s linear infinite;
+  }
+  
+  .animate-pulse-soft {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Loading animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Focus ring improvements */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background;
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px 0 hsl(var(--primary) / 0.15);
+}
+
+/* Prose styling for job descriptions */
+.prose-job {
+  @apply text-slate-700 leading-relaxed;
+}
+
+.prose-job h1, .prose-job h2, .prose-job h3, .prose-job h4 {
+  @apply text-slate-800 font-semibold mt-6 mb-3;
+}
+
+.prose-job h1 { @apply text-xl; }
+.prose-job h2 { @apply text-lg; }
+.prose-job h3 { @apply text-base; }
+.prose-job h4 { @apply text-sm; }
+
+.prose-job ul, .prose-job ol {
+  @apply space-y-1 pl-6 my-4;
+}
+
+.prose-job li {
+  @apply relative;
+}
+
+.prose-job ul li::before {
+  content: "•";
+  @apply absolute left-[-1rem] font-medium;
+  color: hsl(var(--primary));
+}
+
+.prose-job p {
+  @apply mb-4;
+}
+
+.prose-job a {
+  @apply underline;
+  color: hsl(var(--primary));
+}
+
+.prose-job a:hover {
+  color: hsl(var(--primary) / 0.8);
+}
+
+.prose-job strong, .prose-job b {
+  @apply font-semibold text-slate-800;
+}
