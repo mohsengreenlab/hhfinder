@@ -62,6 +62,11 @@ export default function Step4Viewer() {
   const [generatedLetter, setGeneratedLetter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [showActualPrompt, setShowActualPrompt] = useState(false);
+  const [savedPrompts, setSavedPrompts] = useState<{[key: string]: string}>(() => {
+    const saved = localStorage.getItem('saved-prompts');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [promptName, setPromptName] = useState('');
 
   // Build the actual prompt that will be sent to Gemini
   const buildActualPrompt = () => {
@@ -301,6 +306,17 @@ ${jobInfo.description}`;
     },
     onSuccess: (data) => {
       setGeneratedLetter(data.text);
+      // Auto-scroll to generated content
+      setTimeout(() => {
+        const generatedSection = document.querySelector('[data-testid="generated-content"]');
+        if (generatedSection) {
+          generatedSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
     },
     onError: (error) => {
       toast({
@@ -325,6 +341,9 @@ ${jobInfo.description}`;
         }
       }
     }
+    // Clear previous cover letter when navigating
+    setGeneratedLetter('');
+    setShowCoverLetter(false);
   };
 
   const generateCoverLetter = () => {
@@ -651,13 +670,91 @@ ${jobInfo.description}`;
                 <Textarea
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="Write your custom instructions for the cover letter. You can use these placeholders: {{POSITION}}, {{COMPANY}}, {{LOCATION}}, {{SKILLS}}, {{DESCRIPTION}}. Example: 'Write a professional cover letter for {{POSITION}} at {{COMPANY}}. Focus on my experience with {{SKILLS}} and mention points from {{DESCRIPTION}}.'"
+                  placeholder="Write your custom instructions for the cover letter..."
                   className="h-32 text-sm"
                   data-testid="custom-prompt-textarea"
                 />
-                <p className="text-xs text-slate-500 mt-2">
-                  Tip: Use placeholders like {String("{{POSITION}}, {{COMPANY}}, {{SKILLS}}, {{DESCRIPTION}}")} to reference job details
-                </p>
+                
+                {/* Clickable Placeholders */}
+                <div className="flex flex-wrap gap-1 mt-2 mb-3">
+                  {['{{POSITION}}', '{{COMPANY}}', '{{LOCATION}}', '{{SKILLS}}', '{{DESCRIPTION}}'].map(placeholder => (
+                    <button
+                      key={placeholder}
+                      onClick={() => {
+                        const textarea = document.querySelector('[data-testid="custom-prompt-textarea"]') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const newValue = customPrompt.substring(0, start) + placeholder + customPrompt.substring(end);
+                          setCustomPrompt(newValue);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs border"
+                    >
+                      {placeholder}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Save/Load Prompts */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={promptName}
+                    onChange={(e) => setPromptName(e.target.value)}
+                    placeholder="Prompt name..."
+                    className="px-2 py-1 border border-slate-300 rounded text-xs flex-1"
+                  />
+                  <button
+                    onClick={() => {
+                      if (promptName.trim() && customPrompt.trim()) {
+                        const newSaved = { ...savedPrompts, [promptName.trim()]: customPrompt };
+                        setSavedPrompts(newSaved);
+                        localStorage.setItem('saved-prompts', JSON.stringify(newSaved));
+                        setPromptName('');
+                        toast({ description: `Prompt "${promptName.trim()}" saved` });
+                      }
+                    }}
+                    disabled={!promptName.trim() || !customPrompt.trim()}
+                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+
+                {/* Saved Prompts */}
+                {Object.keys(savedPrompts).length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs text-slate-600 mb-1">Saved prompts:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.keys(savedPrompts).map(name => (
+                        <div key={name} className="flex items-center bg-slate-50 rounded border">
+                          <button
+                            onClick={() => setCustomPrompt(savedPrompts[name])}
+                            className="px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                          >
+                            {name}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const newSaved = { ...savedPrompts };
+                              delete newSaved[name];
+                              setSavedPrompts(newSaved);
+                              localStorage.setItem('saved-prompts', JSON.stringify(newSaved));
+                            }}
+                            className="px-1 text-slate-400 hover:text-red-500 text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -695,7 +792,7 @@ ${jobInfo.description}`;
 
           {/* Generated Letter */}
           {(coverLetterMutation.isPending || generatedLetter) && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4" data-testid="generated-content">
               {coverLetterMutation.isPending ? (
                 <LoadingLines messages={letterLoadingMessages} className="py-4" />
               ) : (
