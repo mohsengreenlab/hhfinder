@@ -1,6 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import compression from "compression";
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+
+// Configure WebSocket for Neon serverless
+neonConfig.webSocketConstructor = ws;
 import { hhClient } from "./services/hhClient";
 import { aiClient } from "./services/aiClient";
 import { sanitizeHTML, stripHTMLToText } from "./services/sanitize";
@@ -16,8 +21,14 @@ import {
   filterMatchRequestSchema,
   filterMatchResponseSchema,
   coverLetterRequestSchema,
-  coverLetterResponseSchema
+  coverLetterResponseSchema,
+  insertSavedPromptSchema
 } from "@shared/schema";
+
+// Database connection
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Enable compression
@@ -391,6 +402,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Cover letter error:', error);
       res.status(500).json({ 
         error: 'Failed to generate cover letter',
+        message: error.message 
+      });
+    }
+  });
+
+  // GET /api/saved-prompts
+  app.get('/api/saved-prompts', async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const result = await db.query(`
+        SELECT id, name, prompt, created_at 
+        FROM saved_prompts 
+        ORDER BY created_at DESC
+      `);
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(result.rows);
+
+    } catch (error: any) {
+      console.error('Get saved prompts error:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch saved prompts',
+        message: error.message 
+      });
+    }
+  });
+
+  // POST /api/saved-prompts
+  app.post('/api/saved-prompts', async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const validatedBody = insertSavedPromptSchema.parse(req.body);
+      
+      const result = await db.query(`
+        INSERT INTO saved_prompts (name, prompt) 
+        VALUES ($1, $2) 
+        RETURNING id, name, prompt, created_at
+      `, [validatedBody.name, validatedBody.prompt]);
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(result.rows[0]);
+
+    } catch (error: any) {
+      console.error('Save prompt error:', error);
+      res.status(500).json({ 
+        error: 'Failed to save prompt',
+        message: error.message 
+      });
+    }
+  });
+
+  // DELETE /api/saved-prompts/:id
+  app.delete('/api/saved-prompts/:id', async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid prompt ID' });
+      }
+      
+      const result = await db.query(`
+        DELETE FROM saved_prompts 
+        WHERE id = $1 
+        RETURNING id
+      `, [id]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Prompt not found' });
+      }
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json({ success: true });
+
+    } catch (error: any) {
+      console.error('Delete prompt error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete prompt',
         message: error.message 
       });
     }

@@ -166,13 +166,22 @@ export type HHVacancyDetail = z.infer<typeof hhVacancyDetailSchema>;
 export type CoverLetterRequest = z.infer<typeof coverLetterRequestSchema>;
 export type CoverLetterResponse = z.infer<typeof coverLetterResponseSchema>;
 
-// User schema (basic for session management)
-export const userSchema = z.object({
-  id: z.string(),
-  username: z.string()
+
+
+// Saved prompts schema
+export const insertSavedPromptSchema = z.object({
+  name: z.string().min(1),
+  prompt: z.string().min(1)
 });
 
-export const insertUserSchema = userSchema.omit({ id: true });
+export type InsertSavedPrompt = z.infer<typeof insertSavedPromptSchema>;
 
-export type User = z.infer<typeof userSchema>;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+// User schema (basic for session management)
+export interface User {
+  id: number;
+  username: string;
+}
+
+export interface InsertUser {
+  username: string;
+}

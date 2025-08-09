@@ -141,3 +141,15 @@ export interface ApiError {
   message?: string;
   retryInMs?: number;
 }
+
+export interface SavedPrompt {
+  id: number;
+  name: string;
+  prompt: string;
+  created_at: string;
+}
+
+export interface InsertSavedPrompt {
+  name: string;
+  prompt: string;
+}

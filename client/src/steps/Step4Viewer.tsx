@@ -23,7 +23,9 @@ import {
   FilterMatchRequest,
   FilterMatchResponse,
   CoverLetterRequest,
-  CoverLetterResponse
+  CoverLetterResponse,
+  SavedPrompt,
+  InsertSavedPrompt
 } from '@/types/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,11 +64,43 @@ export default function Step4Viewer() {
   const [generatedLetter, setGeneratedLetter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [showActualPrompt, setShowActualPrompt] = useState(false);
-  const [savedPrompts, setSavedPrompts] = useState<{[key: string]: string}>(() => {
-    const saved = localStorage.getItem('saved-prompts');
-    return saved ? JSON.parse(saved) : {};
-  });
   const [promptName, setPromptName] = useState('');
+
+  // Load saved prompts from database
+  const { data: savedPrompts = [], refetch: refetchPrompts } = useQuery<SavedPrompt[]>({
+    queryKey: ['/api/saved-prompts'],
+    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+  });
+
+  // Save prompt mutation
+  const savePromptMutation = useMutation<SavedPrompt, Error, InsertSavedPrompt>({
+    mutationFn: async (prompt) => {
+      const response = await fetch('/api/saved-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prompt)
+      });
+      if (!response.ok) throw new Error('Failed to save prompt');
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchPrompts();
+      setPromptName('');
+      toast({ description: 'Prompt saved successfully' });
+    }
+  });
+
+  // Delete prompt mutation
+  const deletePromptMutation = useMutation<void, Error, number>({
+    mutationFn: async (id) => {
+      const response = await fetch(`/api/saved-prompts/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete prompt');
+    },
+    onSuccess: () => {
+      refetchPrompts();
+      toast({ description: 'Prompt deleted successfully' });
+    }
+  });
 
   // Build the actual prompt that will be sent to Gemini
   const buildActualPrompt = () => {
@@ -121,10 +155,33 @@ ${jobInfo.description}`;
         break;
         
       case 'custom':
-        userPrompt = customPrompt;
-        break;
+        // For custom prompts, replace placeholders and return without system prompt
+        userPrompt = customPrompt
+          .replace(/\{\{POSITION\}\}/g, vacancyDetail.name)
+          .replace(/\{\{COMPANY\}\}/g, vacancyDetail.employer.name)
+          .replace(/\{\{LOCATION\}\}/g, vacancyDetail.area.name)
+          .replace(/\{\{SKILLS\}\}/g, vacancyDetail.key_skills.map(s => s.name).join(', '))
+          .replace(/\{\{DESCRIPTION\}\}/g, vacancyDetail.descriptionHtmlSanitized.replace(/<[^>]*>/g, '').substring(0, 1500));
         
-      default: // 'default'
+        // Return only user prompt for custom templates
+        return userPrompt;
+        
+      default:
+        // Check if it's a saved prompt
+        const savedPrompt = savedPrompts.find(p => p.name === selectedPromptTemplate);
+        if (savedPrompt) {
+          userPrompt = savedPrompt.prompt
+            .replace(/\{\{POSITION\}\}/g, vacancyDetail.name)
+            .replace(/\{\{COMPANY\}\}/g, vacancyDetail.employer.name)
+            .replace(/\{\{LOCATION\}\}/g, vacancyDetail.area.name)
+            .replace(/\{\{SKILLS\}\}/g, vacancyDetail.key_skills.map(s => s.name).join(', '))
+            .replace(/\{\{DESCRIPTION\}\}/g, vacancyDetail.descriptionHtmlSanitized.replace(/<[^>]*>/g, '').substring(0, 1500));
+          
+          // Return only user prompt for saved templates (no system prompt)
+          return userPrompt;
+        }
+        
+        // Default template - fallback if no saved prompt found
         userPrompt = `Write a professional cover letter for this job:
 Position: ${jobInfo.position}
 Company: ${jobInfo.company}
@@ -136,16 +193,7 @@ ${jobInfo.description}`;
         break;
     }
 
-    // Replace placeholders if using custom prompt
-    if (customPrompt && selectedPromptTemplate === 'custom') {
-      userPrompt = customPrompt
-        .replace(/\{\{POSITION\}\}/g, vacancyDetail.name)
-        .replace(/\{\{COMPANY\}\}/g, vacancyDetail.employer.name)
-        .replace(/\{\{LOCATION\}\}/g, vacancyDetail.area.name)
-        .replace(/\{\{SKILLS\}\}/g, vacancyDetail.key_skills.map(s => s.name).join(', '))
-        .replace(/\{\{DESCRIPTION\}\}/g, vacancyDetail.descriptionHtmlSanitized.replace(/<[^>]*>/g, '').substring(0, 1500));
-    }
-
+    // Return system prompt + user prompt for default templates
     return `${systemPrompt}\n\n${userPrompt}`;
   };
   
@@ -712,41 +760,36 @@ ${jobInfo.description}`;
                   <button
                     onClick={() => {
                       if (promptName.trim() && customPrompt.trim()) {
-                        const newSaved = { ...savedPrompts, [promptName.trim()]: customPrompt };
-                        setSavedPrompts(newSaved);
-                        localStorage.setItem('saved-prompts', JSON.stringify(newSaved));
-                        setPromptName('');
-                        toast({ description: `Prompt "${promptName.trim()}" saved` });
+                        savePromptMutation.mutate({
+                          name: promptName.trim(),
+                          prompt: customPrompt
+                        });
                       }
                     }}
-                    disabled={!promptName.trim() || !customPrompt.trim()}
+                    disabled={!promptName.trim() || !customPrompt.trim() || savePromptMutation.isPending}
                     className="px-2 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50"
                   >
-                    Save
+                    {savePromptMutation.isPending ? 'Saving...' : 'Save'}
                   </button>
                 </div>
 
                 {/* Saved Prompts */}
-                {Object.keys(savedPrompts).length > 0 && (
+                {savedPrompts.length > 0 && (
                   <div className="mt-2">
                     <p className="text-xs text-slate-600 mb-1">Saved prompts:</p>
                     <div className="flex flex-wrap gap-1">
-                      {Object.keys(savedPrompts).map(name => (
-                        <div key={name} className="flex items-center bg-slate-50 rounded border">
+                      {savedPrompts.map(saved => (
+                        <div key={saved.id} className="flex items-center bg-slate-50 rounded border">
                           <button
-                            onClick={() => setCustomPrompt(savedPrompts[name])}
+                            onClick={() => setCustomPrompt(saved.prompt)}
                             className="px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                           >
-                            {name}
+                            {saved.name}
                           </button>
                           <button
-                            onClick={() => {
-                              const newSaved = { ...savedPrompts };
-                              delete newSaved[name];
-                              setSavedPrompts(newSaved);
-                              localStorage.setItem('saved-prompts', JSON.stringify(newSaved));
-                            }}
-                            className="px-1 text-slate-400 hover:text-red-500 text-xs"
+                            onClick={() => deletePromptMutation.mutate(saved.id)}
+                            disabled={deletePromptMutation.isPending}
+                            className="px-1 py-1 text-red-600 hover:bg-red-100 border-l disabled:opacity-50"
                           >
                             ×
                           </button>
