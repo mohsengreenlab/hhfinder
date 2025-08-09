@@ -61,6 +61,12 @@ export default function Step4Viewer() {
   const [selectedPromptTemplate, setSelectedPromptTemplate] = useState('default');
   const [generatedLetter, setGeneratedLetter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+    setCurrentVacancyIndex(0);
+  }, [hhFilters]);
 
   // Convert filters to HH format
   const { data: hhFilters, isLoading: isMatchingFilters } = useQuery<FilterMatchResponse>({
@@ -77,6 +83,8 @@ export default function Step4Viewer() {
         enableSalaryFilter: filters.enableSalaryFilter,
         enableMetroFilter: filters.enableMetroFilter,
         enableLabelFilter: filters.enableLabelFilter,
+        enableEducationFilter: filters.enableEducationFilter,
+        enableWorkFormatFilter: filters.enableWorkFormatFilter,
         
         // Existing filters
         locationText: filters.locationText,
@@ -97,7 +105,11 @@ export default function Step4Viewer() {
         metroStation: filters.metroStation,
         searchFields: filters.searchFields,
         vacancyLabels: filters.vacancyLabels,
-        employerName: filters.employerName
+        employerName: filters.employerName,
+        
+        // Education and work format filters
+        educationLevel: filters.educationLevel,
+        workFormats: filters.workFormats
       };
 
       const response = await fetch('/api/filters/match', {
@@ -132,7 +144,7 @@ export default function Step4Viewer() {
         }
       });
       params.set('page', currentPage.toString());
-      params.set('per_page', '20');
+      params.set('per_page', '100');
 
       const response = await fetch(`/api/vacancies?${params.toString()}`);
       
@@ -146,12 +158,22 @@ export default function Step4Viewer() {
     staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
-  // Update store when search results change
+  // Update store when search results change (append for pagination)
   useEffect(() => {
     if (vacanciesData?.items) {
-      setSearchResults(vacanciesData.items, vacanciesData.found);
+      if (currentPage === 0) {
+        // First page - replace results
+        setSearchResults(vacanciesData.items, vacanciesData.found);
+      } else {
+        // Subsequent pages - append results (avoid duplicates)
+        const currentResults = searchResults || [];
+        const existingIds = new Set(currentResults.map(item => item.id));
+        const newItems = vacanciesData.items.filter(item => !existingIds.has(item.id));
+        const newResults = [...currentResults, ...newItems];
+        setSearchResults(newResults, vacanciesData.found);
+      }
     }
-  }, [vacanciesData, setSearchResults]);
+  }, [vacanciesData, setSearchResults, currentPage]);
 
   // Get current vacancy details
   const currentVacancy = searchResults[currentVacancyIndex];
@@ -210,8 +232,16 @@ export default function Step4Viewer() {
   const handleNavigation = (direction: 'prev' | 'next') => {
     if (direction === 'prev' && currentVacancyIndex > 0) {
       setCurrentVacancyIndex(currentVacancyIndex - 1);
-    } else if (direction === 'next' && currentVacancyIndex < searchResults.length - 1) {
-      setCurrentVacancyIndex(currentVacancyIndex + 1);
+    } else if (direction === 'next') {
+      if (currentVacancyIndex < searchResults.length - 1) {
+        setCurrentVacancyIndex(currentVacancyIndex + 1);
+        
+        // Auto-load next page when approaching end of current results
+        const remainingResults = searchResults.length - currentVacancyIndex - 1;
+        if (remainingResults <= 5 && vacanciesData && vacanciesData.page < vacanciesData.pages - 1) {
+          setCurrentPage(currentPage + 1);
+        }
+      }
     }
   };
 

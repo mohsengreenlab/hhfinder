@@ -261,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         only_with_salary: req.query.only_with_salary === 'true',
         period: req.query.period ? parseInt(req.query.period as string) : undefined,
         order_by: req.query.order_by as string,
-        per_page: Math.min(parseInt(req.query.per_page as string) || 20, 50),
+        per_page: Math.min(parseInt(req.query.per_page as string) || 100, 2000),
         page: parseInt(req.query.page as string) || 0,
         specialization: req.query.specialization as string,
         metro: req.query.metro as string,
