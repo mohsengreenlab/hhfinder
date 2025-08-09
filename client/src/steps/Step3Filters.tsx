@@ -15,8 +15,24 @@ import { HHDictionaries, HHArea } from '@/types/api';
 export default function Step3Filters() {
   const { filters, setFilters, goBack, goNext } = useWizardStore();
   
+  // Ensure all new fields exist (migration from old localStorage)
+  const migratedFilters = {
+    ...filters,
+    enableLocationFilter: filters.enableLocationFilter ?? false,
+    enableExperienceFilter: filters.enableExperienceFilter ?? false,
+    enableEmploymentFilter: filters.enableEmploymentFilter ?? false,
+    enableScheduleFilter: filters.enableScheduleFilter ?? false,
+    enableSalaryFilter: filters.enableSalaryFilter ?? false,
+    enableMetroFilter: filters.enableMetroFilter ?? false,
+    enableLabelFilter: filters.enableLabelFilter ?? false,
+    metroStation: filters.metroStation ?? '',
+    searchFields: filters.searchFields ?? [],
+    vacancyLabels: filters.vacancyLabels ?? [],
+    employerName: filters.employerName ?? ''
+  };
+  
   // Local form state
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [localFilters, setLocalFilters] = useState(migratedFilters);
 
   // Fetch dictionaries
   const { data: dictionaries } = useQuery<HHDictionaries>({
