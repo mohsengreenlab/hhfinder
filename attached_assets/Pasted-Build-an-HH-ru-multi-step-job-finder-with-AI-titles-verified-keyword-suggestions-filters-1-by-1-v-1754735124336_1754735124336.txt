@@ -1,0 +1,259 @@
+Build an HH.ru multi-step job finder with AI titles, verified keyword suggestions, filters, 1-by-1 viewer, and AI cover letters
+Goal
+
+Create a fast, single-page app (TypeScript) that guides users through steps:
+
+    Enter a job title/keywords.
+
+    Backend asks Gemini for related titles, then verifies them char-by-char via HH.ru keyword suggests → returns the top 10 suggestions.
+
+    User picks/edits keywords; then answers filter questions (location/remote/experience/income/etc.). Backend + Gemini map answers to HH filters.
+
+    Backend searches vacancies; UI shows one vacancy at a time with Prev/Next, sanitized HTML, “Generate cover letter”, save/load custom prompts, edit letter, and Apply on hh.ru (opens alternate_url).
+
+    At every wait, show playful loading lines like: “On your command… calibrating scanners…”.
+
+    The user can step back anytime to refine inputs.
+
+Tech
+
+    Backend: Node.js + Express + TypeScript. Proxy to api.hh.ru and Google Gemini (server-side only).
+
+    Frontend: React + TypeScript + Vite. Accessible ARIA combobox/listbox.
+
+    Styling: Tailwind or simple CSS modules (your call).
+
+    Sanitization: DOMPurify (server-side with JSDOM).
+
+    Caching: LRU in memory (suggests 60s, dicts/areas 24h, vacancy details 10m).
+
+    Network: Keep-alive HTTP(S) agents, gzip (compression).
+
+    i18n: Use Accept-Language: ru to keep HH texts Russian.
+
+    Env: GEMINI_API_KEY, HH_USER_AGENT (if you can’t set User-Agent, send HH-User-Agent).
+
+Backend routes (Express, TypeScript)
+
+Implement these, all attaching Accept-Language: ru and a UA header, handling 429 with jitter backoff and { error: 'rate_limited', retryInMs }:
+
+    GET /api/ai-keywords?q=<text>
+
+        Flow:
+
+            Call Gemini (model: "gemini-2.5-flash") with the user text to generate ~8–12 related job titles/keywords (Russian).
+
+            For each candidate string s: simulate typing char-by-char and call HH suggests
+            GET https://api.hh.ru/suggests/vacancy_search_keyword?text=<prefix>
+            Collect all returned suggestions, dedupe, score by frequency + prefix match quality, and rank global top 10.
+
+            Cache per (input text → result) for 60s. Return:
+
+        { "aiTitles": ["data scientist", ...], "suggestionsTop10": [{ "text": "...", "source": "hh" }, ...] }
+
+    Purpose: the user confirms from a trustworthy list.
+
+GET /api/dictionaries (cache 24h) → proxies https://api.hh.ru/dictionaries.
+
+GET /api/areas (cache 24h) → proxies https://api.hh.ru/areas.
+
+POST /api/filters/match
+
+    Body: user answers (locationText, remoteHybrid, experienceText, incomeNumber, currency, etc.).
+
+    Flow: Use Gemini to map free-text answers to HH enums using /dictionaries values (experience, employment, schedule, vacancy_search_order, currency). Return normalized filter object:
+
+        {
+          "text": "selected keyword",
+          "area": "1",                       // Moscow, etc.
+          "experience": "between1And3",
+          "employment": ["full"],
+          "schedule": ["remote", "flexible"],
+          "salary": 180000,
+          "currency": "RUR",
+          "only_with_salary": true,
+          "period": 7,
+          "order_by": "relevance"
+        }
+
+    GET /api/vacancies (supports: text, area, experience, employment[], schedule[], salary, currency, only_with_salary, period, order_by, per_page, page, specialization, metro, employer_id)
+
+        Proxy to https://api.hh.ru/vacancies and trim payload to essentials (id, name, employer.name, area.name, snippet, salary, alternate_url). Preload per_page up to 50.
+
+    GET /api/vacancies/:id
+
+        Proxy https://api.hh.ru/vacancies/{id} to get full description HTML. Sanitize HTML server-side and cache sanitized result keyed by id + updated_at (or HTML hash). Return { id, name, employer, area, alternate_url, descriptionHtmlSanitized, key_skills }.
+
+    POST /api/cover-letter
+
+        Body: { name, employerName, areaName, skillsList, plainDescription, userProfile, customPrompt? }
+
+        Use Gemini with system prompt:
+
+            “You write concise, polite Russian cover letters for a real human applicant.”
+            User prompt (150–220 words, 3 short paragraphs, 2–4 relevant skills, 1 concrete hint from vacancy, no fluff).
+
+        Stream if possible; else return full text.
+
+Backend must:
+
+    Use keep-alive agents, compression(), AbortSignal.timeout(8000).
+
+    Coalesce identical in-flight requests (typing storms).
+
+    Expose Server-Timing for total, upstream, sanitize, cache.
+
+    Return friendly 429 handling.
+
+Frontend (React + TS) — Multi-step wizard
+
+Implement a 4-step state machine (Step1Keywords → Step2Confirm → Step3Filters → Step4Viewer). Each step has Back and Next (where applicable), persists progress, and shows themed loading messages.
+Step 1 — “What are you looking for?”
+
+    Text input with ARIA combobox behavior (but suggestions provided by Step 2, so here we just capture input).
+
+    On Continue, call /api/ai-keywords?q=.... Show playful wait lines rotating every 700ms:
+
+        “On your command…”
+
+        “Consulting labor droids…”
+
+        “Tickling HH.ru for hints…”
+
+        “Sharpening cover-letter quills…”
+
+Step 2 — “Pick up to 3 keyword suggestions”
+
+    Render top 10 from backend (checkbox list + quick “select all that match”). Allow manual edit/add.
+
+    Keyboard: ↑/↓/Enter; ESC closes list.
+
+    Debounce and client-cache if the user tweaks Step 1 input and returns.
+
+Step 3 — “Tune your filters”
+
+Ask in plain language (one compact form):
+
+    Location (searchable tree fed by /api/areas) with “Remote only” / “Hybrid OK”.
+
+    Experience (friendly labels; map to HH ids).
+
+    Employment / Schedule (multi-select).
+
+    Salary + currency + “only with salary” (checkbox).
+
+    Period (last N days, ≤ 30).
+
+    Order by (from dictionaries).
+    On submit, call /api/filters/match to normalize to HH enums. Persist to localStorage with a 24h TTL.
+
+Step 4 — Results viewer (one-by-one)
+
+    On enter, call /api/vacancies?... and keep an index (“12 of 134”).
+
+    For the current item, fetch /api/vacancies/:id, display:
+
+        Title, Company, Location, Salary (if any)
+
+        Sanitized description HTML
+
+        Buttons: Previous / Next, View on hh.ru (opens alternate_url), Generate cover letter.
+
+    Prefetch next 2–3 detail pages in background to make Next instant.
+
+    Cover letter pane:
+
+        Prompt editor (save/load named prompts in localStorage).
+
+        “Generate” → /api/cover-letter; show live stream or spinner with messages (“Drafting in perfect Russian…”, “Polishing tone…”, “Almost there…”).
+
+        Textarea to edit; Copy and Download .txt.
+
+    Always allow Back to Step 3/2/1 without losing state.
+
+Accessibility & UX
+
+    Combobox/listbox with correct ARIA roles, keyboard navigation, focus ring.
+
+    Loading states with polite ARIA status live region.
+
+    Empty/error states with retry (“HH is rate-limited; try again in {{retryInMs/1000}}s”).
+
+    Persist last used filters/prompts in localStorage.
+
+Performance Requirements
+
+    Suggest verification and dictionaries/areas cached as above.
+
+    Requests debounced (≈300–350ms) and cancellable with AbortController.
+
+    per_page up to 50; don’t re-query until page exhausted.
+
+    Backend trims payloads; details sanitized once and cached.
+
+    Use keep-alive + gzip; Server-Timing headers enabled.
+
+Environment & Run
+
+    Create .env:
+
+    GEMINI_API_KEY=your_key_here
+    HH_USER_AGENT=hh-finder/1.0 (+yourdomain)
+
+    Start scripts:
+
+        dev: concurrently run vite and ts-node-dev for Express.
+
+        build: type-check, build client to dist, compile server.
+
+        start: serve dist and API.
+
+Acceptance Criteria
+
+    Step 1 → Step 2 returns 10 verified suggestions derived from Gemini titles and HH char-by-char suggests.
+
+    Step 3 maps answers to valid HH enums from /dictionaries.
+
+    Step 4 shows first vacancy with sanitized description; Next iterates without re-query until page end.
+
+    Cover letter generates 150–220 words in Russian with vacancy-specific hint; user can edit/save prompt.
+
+    All HH requests include UA + Accept-Language: ru; 429 handled gracefully.
+
+    Back navigation works from any step without losing state.
+
+Implementation hints (feel free to generate code for these)
+
+    Keep-alive agents in Node, compression(), AbortSignal.timeout(8000).
+
+    LRU caches for suggests/dicts/areas/details + in-flight coalescing map.
+
+    Char-by-char verify: for each AI title t, iterate prefixes t.slice(0, i), fetch HH suggests, collect, rank by occurrence and prefix distance.
+
+    Sanitization: DOMPurify with JSDOM on server; cache sanitized HTML by id + updated_at (or hash).
+
+    State machine: useReducer or tiny xstate-like switch; global store for wizard data.
+
+    ARIA combobox: role="combobox" + listbox, proper aria-controls, aria-activedescendant.
+
+If the generator needs file scaffolding, ask it to create:
+
+/server
+  index.ts
+  hhClient.ts
+  aiClient.ts
+  cache.ts
+  sanitize.ts
+/client
+  index.html
+  src/main.tsx
+  src/App.tsx
+  src/steps/Step1Keywords.tsx
+  src/steps/Step2Confirm.tsx
+  src/steps/Step3Filters.tsx
+  src/steps/Step4Viewer.tsx
+  src/components/Combobox.tsx
+  src/components/LoadingLines.tsx
+  src/state/wizard.ts
+
+…and wire everything per the spec above.
