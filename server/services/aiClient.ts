@@ -81,9 +81,11 @@ Schedule: ${JSON.stringify(dictionaries.schedule)}
 Currencies: ${JSON.stringify(dictionaries.currency)}
 Sort order: ${JSON.stringify(dictionaries.vacancy_search_order)}
 
-Return a JSON object with correct IDs from dictionaries:
+The user has selected these job keywords: ${answers.selectedKeywords?.join(', ') || 'none'}
+
+Return a JSON object with correct IDs from dictionaries. For the "text" field, combine the selected keywords into a search string:
 {
-  "text": "selected keyword",
+  "text": "combine selected keywords into search string",
   "area": "1", // Area ID (1 = Moscow, 2 = SPb, etc.)
   "experience": "ID_from_dictionary",
   "employment": ["ID1", "ID2"],
@@ -117,9 +119,9 @@ Return a JSON object with correct IDs from dictionaries:
       }
     } catch (error) {
       console.error('Filter mapping failed:', error);
-      // Return basic fallback
+      // Return basic fallback with proper keyword combination
       return {
-        text: answers.selectedKeywords?.[0] || '',
+        text: answers.selectedKeywords?.join(' OR ') || '',
         area: answers.locationText?.includes('Москва') ? '1' : undefined,
         experience: 'doesNotMatter',
         employment: ['full'],

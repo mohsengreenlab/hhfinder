@@ -39,6 +39,7 @@ export const hhDictionariesSchema = z.object({
 });
 
 export const filterMatchRequestSchema = z.object({
+  selectedKeywords: z.array(z.string()),
   locationText: z.string().optional(),
   remoteHybrid: z.object({
     remoteOnly: z.boolean(),
