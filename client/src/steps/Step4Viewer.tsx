@@ -61,6 +61,88 @@ export default function Step4Viewer() {
   const [selectedPromptTemplate, setSelectedPromptTemplate] = useState('default');
   const [generatedLetter, setGeneratedLetter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
+  const [showActualPrompt, setShowActualPrompt] = useState(false);
+
+  // Build the actual prompt that will be sent to Gemini
+  const buildActualPrompt = () => {
+    if (!vacancyDetail) return '';
+    
+    const systemPrompt = `You write concise, polite cover letters in English for real job applicants.
+
+Requirements:
+- 150-220 words
+- 3 short paragraphs
+- Mention 2-4 relevant skills
+- Include 1 specific fact from the job posting
+- No fluff or clichés
+- Professional tone`;
+
+    // Build user prompt based on template selection
+    let userPrompt = '';
+    
+    const jobInfo = {
+      position: vacancyDetail.name,
+      company: vacancyDetail.employer.name,
+      location: vacancyDetail.area.name,
+      skills: vacancyDetail.key_skills.map(s => s.name).join(', '),
+      description: vacancyDetail.descriptionHtmlSanitized.replace(/<[^>]*>/g, '').substring(0, 1000)
+    };
+
+    switch (selectedPromptTemplate) {
+      case 'technical':
+        userPrompt = `Write a technical cover letter for this software engineering position:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Required technologies: ${jobInfo.skills}
+
+Focus on technical experience, problem-solving skills, and specific technologies mentioned in the job description. Be professional but show technical expertise.
+
+Job description:
+${jobInfo.description}`;
+        break;
+        
+      case 'creative':
+        userPrompt = `Write a creative, engaging cover letter that shows personality while remaining professional:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Key skills: ${jobInfo.skills}
+
+Show enthusiasm, creativity, and how you'd add value to their team. Make it memorable but professional.
+
+Job description:
+${jobInfo.description}`;
+        break;
+        
+      case 'custom':
+        userPrompt = customPrompt;
+        break;
+        
+      default: // 'default'
+        userPrompt = `Write a professional cover letter for this job:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Key skills: ${jobInfo.skills}
+
+Job description:
+${jobInfo.description}`;
+        break;
+    }
+
+    // Replace placeholders if using custom prompt
+    if (customPrompt && selectedPromptTemplate === 'custom') {
+      userPrompt = customPrompt
+        .replace(/\{\{POSITION\}\}/g, vacancyDetail.name)
+        .replace(/\{\{COMPANY\}\}/g, vacancyDetail.employer.name)
+        .replace(/\{\{LOCATION\}\}/g, vacancyDetail.area.name)
+        .replace(/\{\{SKILLS\}\}/g, vacancyDetail.key_skills.map(s => s.name).join(', '))
+        .replace(/\{\{DESCRIPTION\}\}/g, vacancyDetail.descriptionHtmlSanitized.replace(/<[^>]*>/g, '').substring(0, 1500));
+    }
+
+    return `${systemPrompt}\n\n${userPrompt}`;
+  };
   
   // Convert filters to HH format
   const { data: hhFilters, isLoading: isMatchingFilters } = useQuery<FilterMatchResponse>({
@@ -576,6 +658,24 @@ export default function Step4Viewer() {
                 <p className="text-xs text-slate-500 mt-2">
                   Tip: Use placeholders like {String("{{POSITION}}, {{COMPANY}}, {{SKILLS}}, {{DESCRIPTION}}")} to reference job details
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* Actual Prompt Preview */}
+          <div className="mb-4">
+            <button
+              onClick={() => setShowActualPrompt(!showActualPrompt)}
+              className="text-sm text-slate-600 underline hover:text-slate-800"
+            >
+              {showActualPrompt ? 'Hide' : 'Show'} AI prompt
+            </button>
+            
+            {showActualPrompt && (
+              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded text-xs">
+                <div className="text-slate-700 font-mono whitespace-pre-wrap">
+                  {buildActualPrompt()}
+                </div>
               </div>
             )}
           </div>
