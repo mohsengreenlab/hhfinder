@@ -57,30 +57,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const aiTitles = await aiClient.generateJobTitles(query);
         const aiDuration = Date.now() - aiStartTime;
 
-        // Verify each title char-by-char with HH.ru
+        // Verify titles with HH.ru suggestions API
         const hhStartTime = Date.now();
         const allSuggestions = new Map<string, number>();
 
+        // Check AI titles and extract key words for verification
+        const searchTerms = new Set<string>();
+        
         for (const title of aiTitles) {
-          for (let i = 1; i <= title.length; i++) {
-            const prefix = title.slice(0, i);
-            try {
-              const { data } = await hhClient.getSuggestions(prefix);
-              if (data.items) {
-                data.items.forEach((item: any) => {
+          // Add the full title if it's reasonable length
+          if (title.length >= 3 && title.length <= 50) {
+            searchTerms.add(title);
+          }
+          
+          // Extract meaningful words (3+ characters)
+          const words = title.toLowerCase().split(/[^a-zа-я0-9]+/).filter(word => word.length >= 3);
+          words.forEach(word => searchTerms.add(word));
+        }
+
+        // Limit to prevent too many API calls
+        const termsToCheck = Array.from(searchTerms).slice(0, 20);
+
+        for (const term of termsToCheck) {
+          try {
+            const { data } = await hhClient.getSuggestions(term);
+            if (data && data.items && Array.isArray(data.items)) {
+              data.items.forEach((item: any) => {
+                if (item && item.text) {
                   const text = item.text;
                   const count = allSuggestions.get(text) || 0;
-                  const prefixMatch = text.toLowerCase().startsWith(prefix.toLowerCase());
-                  allSuggestions.set(text, count + (prefixMatch ? 2 : 1));
-                });
-              }
-            } catch (error) {
-              console.error(`Failed to get suggestions for prefix "${prefix}":`, error);
+                  allSuggestions.set(text, count + 1);
+                }
+              });
             }
-            
-            // Small delay to avoid overwhelming HH.ru
-            await new Promise(resolve => setTimeout(resolve, 10));
+          } catch (error) {
+            console.error(`Failed to get suggestions for "${term}":`, error);
           }
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
         const hhDuration = Date.now() - hhStartTime;

@@ -35,7 +35,16 @@ Junior Data Scientist
       const titles = response
         .split('\n')
         .map(title => title.trim())
-        .filter(title => title.length > 0 && !title.startsWith('Пример'))
+        .filter(title => {
+          // Filter out descriptive text and keep only job titles
+          return title.length > 0 && 
+                 !title.toLowerCase().includes('here are') &&
+                 !title.toLowerCase().includes('related job') &&
+                 !title.toLowerCase().includes('commonly used') &&
+                 !title.startsWith('Пример') &&
+                 !title.includes(':') &&
+                 !title.toLowerCase().includes('example');
+        })
         .slice(0, 12);
 
       return titles;
@@ -100,7 +109,12 @@ Return a JSON object with correct IDs from dictionaries:
       const response = result.response.text();
       const cleanJson = response.replace(/```json\n?|```\n?/g, '').trim();
       
-      return JSON.parse(cleanJson);
+      try {
+        return JSON.parse(cleanJson);
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', cleanJson);
+        throw new Error('AI returned invalid JSON format');
+      }
     } catch (error) {
       console.error('Filter mapping failed:', error);
       // Return basic fallback
