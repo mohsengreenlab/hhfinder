@@ -29,7 +29,18 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    let url: string;
+    
+    // Handle different query patterns
+    if (queryKey.length === 2 && queryKey[0] === '/api/ai-keywords') {
+      // Special case for AI keywords with query parameter
+      url = `${queryKey[0]}?q=${encodeURIComponent(queryKey[1] as string)}`;
+    } else {
+      // Standard URL joining for other endpoints
+      url = queryKey.join("/") as string;
+    }
+    
+    const res = await fetch(url, {
       credentials: "include",
     });
 
