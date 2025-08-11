@@ -67,6 +67,7 @@ export interface WizardState {
   searchResults: any[];
   currentVacancyIndex: number;
   totalFound: number;
+  appliedVacancyIds: string[];
   
   // Auto-save state
   currentApplicationId: number | null;
@@ -86,6 +87,7 @@ export interface WizardState {
   setSearchResults: (results: any[], totalFound: number) => void;
   setVacancies: (vacancies: any[]) => void;
   setCurrentVacancyIndex: (index: number) => void;
+  markVacancyAsApplied: (vacancyId: string) => void;
   
   // Auto-save actions
   autoSave: () => Promise<void>;
@@ -154,6 +156,7 @@ export const useWizardStore = create<WizardState>()(
       searchResults: [],
       currentVacancyIndex: 0,
       totalFound: 0,
+      appliedVacancyIds: [],
       
       // Auto-save state
       currentApplicationId: null,
@@ -255,6 +258,7 @@ export const useWizardStore = create<WizardState>()(
             filters: state.filters,
             currentVacancyIndex: state.currentVacancyIndex,
             vacancies: state.searchResults,
+            appliedVacancyIds: state.appliedVacancyIds,
             isCompleted: false
           };
           
@@ -290,6 +294,17 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setCurrentApplicationId: (id) => set({ currentApplicationId: id }),
+      
+      markVacancyAsApplied: (vacancyId) => {
+        const { appliedVacancyIds } = get();
+        if (!appliedVacancyIds.includes(vacancyId)) {
+          set({ 
+            appliedVacancyIds: [...appliedVacancyIds, vacancyId] 
+          });
+          // Auto-save when marking vacancy as applied
+          setTimeout(() => get().autoSave(), 500);
+        }
+      },
       
       // Transition actions
       startTransition: (from, to) => set({
@@ -360,6 +375,7 @@ export const useWizardStore = create<WizardState>()(
         searchResults: [],
         currentVacancyIndex: 0,
         totalFound: 0,
+        appliedVacancyIds: [],
         currentApplicationId: null,
         isSaving: false,
         lastSavedAt: null

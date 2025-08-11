@@ -124,6 +124,7 @@ export class MemStorage implements IStorage {
     const application: JobApplication = {
       id: this.appIdCounter++,
       ...appData,
+      appliedVacancyIds: appData.appliedVacancyIds || [],
       lastEditedAt: new Date(),
       createdAt: new Date()
     };

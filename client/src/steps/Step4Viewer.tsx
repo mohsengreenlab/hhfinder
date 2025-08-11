@@ -57,8 +57,10 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     searchResults, 
     currentVacancyIndex, 
     totalFound,
+    appliedVacancyIds,
     setSearchResults,
     setCurrentVacancyIndex,
+    markVacancyAsApplied,
     goBack 
   } = useWizardStore();
   
@@ -110,43 +112,60 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     }
   });
 
-  // Apply to vacancy mutation
-  const applyMutation = useMutation({
-    mutationFn: async () => {
-      if (!vacancyDetail) throw new Error('No vacancy selected');
+  // Apply to vacancy - opens HH.ru and marks as applied
+  const handleApplyToVacancy = () => {
+    if (!vacancyDetail) return;
+    
+    try {
+      // Build HH.ru apply URL 
+      const applyUrl = vacancyDetail.apply_alternate_url || 
+        vacancyDetail.alternate_url || 
+        `https://hh.ru/vacancy/${vacancyDetail.id}`;
       
-      const response = await fetch('/api/apply-vacancy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vacancyId: vacancyDetail.id,
-          vacancyTitle: vacancyDetail.name,
-          companyName: vacancyDetail.employer.name
-        })
-      });
+      // Open in new tab
+      const newWindow = window.open(applyUrl, '_blank', 'noopener,noreferrer');
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to apply to vacancy');
+      // Check if popup was blocked
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Popup blocked - show notice with direct link
+        toast({
+          title: "Pop-up blocked",
+          description: (
+            <div className="space-y-2">
+              <p>Please allow pop-ups for this site, or</p>
+              <a 
+                href={applyUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-500 underline hover:text-blue-700"
+              >
+                Click here to apply on HH.ru
+              </a>
+            </div>
+          ),
+          duration: 10000
+        });
+      } else {
+        // Successfully opened - show success message
+        toast({
+          title: "Opened HH.ru",
+          description: "Complete your application on the HH.ru tab that just opened",
+          duration: 5000
+        });
       }
       
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchStatus(); // Refresh vacancy status
-      toast({ 
-        description: 'Application submitted successfully!',
-        duration: 5000 
-      });
-    },
-    onError: (error: Error) => {
+      // Mark vacancy as applied immediately
+      markVacancyAsApplied(vacancyDetail.id);
+      
+    } catch (error) {
+      console.error('Error applying to vacancy:', error);
       toast({
-        title: "Application Failed",
-        description: error.message,
+        title: "Error",
+        description: "Could not open application page. Please try again.",
         variant: "destructive"
       });
     }
-  });
+  };
 
   // Build the actual prompt that will be sent to Gemini
   const buildActualPrompt = () => {
@@ -514,6 +533,30 @@ ${jobInfo.description}`;
   };
 
   const renderApplyButton = () => {
+    const currentVacancy = searchResults[currentVacancyIndex];
+    const isAlreadyApplied = currentVacancy && appliedVacancyIds.includes(currentVacancy.id);
+
+    // Check if vacancy is missing ID or URL
+    if (!currentVacancy?.id) {
+      return (
+        <Button disabled className="bg-gray-400 text-white">
+          <AlertCircle className="mr-2 h-4 w-4" />
+          Unavailable
+        </Button>
+      );
+    }
+
+    // Show "Already Applied" if user has applied to this vacancy
+    if (isAlreadyApplied) {
+      return (
+        <Button disabled className="bg-green-500 text-white">
+          <CheckCircle className="mr-2 h-4 w-4" />
+          Already Applied
+        </Button>
+      );
+    }
+
+    // Show loading while checking status
     if (!vacancyStatus) {
       return (
         <Button disabled className="bg-gray-400">
@@ -523,8 +566,9 @@ ${jobInfo.description}`;
       );
     }
 
-    const { canApply, hasApplied, requiresTest, isDirect, message, exists } = vacancyStatus as any;
+    const { exists } = vacancyStatus as any;
 
+    // Vacancy no longer exists on HH.ru
     if (!exists) {
       return (
         <Button disabled className="bg-red-500 text-white">
@@ -534,60 +578,15 @@ ${jobInfo.description}`;
       );
     }
 
-    if (hasApplied) {
-      return (
-        <Button disabled className="bg-green-500 text-white">
-          <CheckCircle className="mr-2 h-4 w-4" />
-          Applied
-        </Button>
-      );
-    }
-
-    if (requiresTest || isDirect) {
-      return (
-        <Button 
-          onClick={() => {
-            const applyUrl = vacancyDetail?.apply_alternate_url || 
-              `https://hh.ru/applicant/vacancy_response?vacancyId=${vacancyDetail?.id}`;
-            window.open(applyUrl, '_blank');
-          }}
-          className="bg-orange-500 text-white hover:bg-orange-600"
-          title={message}
-        >
-          <ExternalLink className="mr-2 h-4 w-4" />
-          {requiresTest ? 'Requires Test' : 'Apply on HH.ru'}
-        </Button>
-      );
-    }
-
-    if (canApply) {
-      return (
-        <Button
-          onClick={() => applyMutation.mutate()}
-          disabled={applyMutation.isPending}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-          data-testid="apply-now-button"
-        >
-          {applyMutation.isPending ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              Applying...
-            </>
-          ) : (
-            <>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Apply
-            </>
-          )}
-        </Button>
-      );
-    }
-
-    // Fallback - should not happen
+    // Default apply button - opens HH.ru
     return (
-      <Button disabled className="bg-gray-400">
-        <AlertCircle className="mr-2 h-4 w-4" />
-        Cannot Apply
+      <Button
+        onClick={handleApplyToVacancy}
+        className="bg-blue-600 text-white hover:bg-blue-700"
+        data-testid="apply-now-button"
+      >
+        <ExternalLink className="mr-2 h-4 w-4" />
+        Apply on HH.ru
       </Button>
     );
   };

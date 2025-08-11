@@ -43,6 +43,8 @@ function AuthenticatedApp() {
     setCurrentVacancyIndex, 
     setVacancies, 
     setCurrentApplicationId,
+    appliedVacancyIds,
+    markVacancyAsApplied,
     reset 
   } = useWizardStore();
 
@@ -76,6 +78,14 @@ function AuthenticatedApp() {
     setFilters(application.filters || {});
     setCurrentVacancyIndex(application.currentVacancyIndex || 0);
     setVacancies(application.vacancies || []);
+    
+    // Restore applied vacancy IDs
+    if ((application as any).appliedVacancyIds && (application as any).appliedVacancyIds.length > 0) {
+      (application as any).appliedVacancyIds.forEach((vacancyId: string) => {
+        markVacancyAsApplied(vacancyId);
+      });
+    }
+    
     setAppState('wizard');
   };
 
@@ -96,7 +106,7 @@ function AuthenticatedApp() {
     default:
       return (
         <Dashboard
-          user={user}
+          user={user!}
           onLogout={logout}
           onStartNewApplication={handleStartNewApplication}
           onContinueApplication={handleContinueApplication}

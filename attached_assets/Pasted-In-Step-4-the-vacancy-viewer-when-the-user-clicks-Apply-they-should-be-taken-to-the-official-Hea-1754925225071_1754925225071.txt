@@ -1,0 +1,47 @@
+In Step 4 (the vacancy viewer), when the user clicks Apply, they should be taken to the official HeadHunter page for that vacancy to complete the application there. Our site should not submit applications. At the same time, our app should remember that this vacancy was applied to and handle it properly in the list.
+
+How it should work
+
+    Open HH.ru to apply
+
+        Clicking Apply opens the official vacancy page on HH.ru (in a new tab).
+
+        If we have a cover letter, show it right before the click (with a “Copy” button) so the user can paste it on HH.ru.
+
+    Remember the application
+
+        As soon as the user clicks Apply, mark that vacancy as Applied in my saved search.
+
+        Applied vacancies should not appear again in the normal Next/Previous browsing flow.
+
+        If the user navigates back to an applied vacancy (e.g., via history or list), show a clear badge/message: “Already applied” (and disable the Apply button).
+
+    Keep progress clean
+
+        After marking as Applied, move the user to the next available vacancy automatically (skip applied ones).
+
+        Counts should reflect this (e.g., “4 of 119 remaining” instead of “4 of 120”).
+
+    Saved state
+
+        This applied status must be saved with the user’s search so it persists after logout/login and shows correctly under My Applications.
+
+Edge cases
+
+    If the vacancy ID is missing or the HH.ru link can’t be built, show a friendly error and keep the vacancy visible.
+
+    If a pop-up blocker stops the new tab, show a small notice telling the user to allow the pop-up and provide a direct link they can click.
+
+    If the vacancy later disappears on HH.ru, mark it as Unavailable and skip it.
+
+Success checklist
+
+    Clicking Apply opens the correct HH.ru vacancy page in a new tab.
+
+    The vacancy is immediately marked Applied, hidden from normal browsing, and the user is moved to the next one.
+
+    Returning to that vacancy shows “Already applied” and the Apply button is disabled.
+
+    The applied state persists across sessions and appears correctly in My Applications.
+
+    Counts and navigation skip applied vacancies smoothly (no dead ends or freezes).
