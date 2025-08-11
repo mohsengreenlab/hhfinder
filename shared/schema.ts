@@ -209,6 +209,7 @@ export const jobApplicationSchema = z.object({
   filters: z.record(z.any()),
   currentVacancyIndex: z.number(),
   vacancies: z.array(z.any()),
+  totalVacancies: z.number().default(0),
   appliedVacancyIds: z.array(z.string()),
   lastEditedAt: z.date(),
   createdAt: z.date(),
@@ -224,6 +225,7 @@ export const insertJobApplicationSchema = z.object({
   filters: z.record(z.any()).default({}),
   currentVacancyIndex: z.number().default(0),
   vacancies: z.array(z.any()).default([]),
+  totalVacancies: z.number().default(0),
   appliedVacancyIds: z.array(z.string()).default([]),
   isCompleted: z.boolean().default(false)
 });

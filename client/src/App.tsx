@@ -20,6 +20,7 @@ interface JobApplication {
   filters: Record<string, any>;
   currentVacancyIndex: number;
   vacancies: any[];
+  totalVacancies: number;
   lastEditedAt: string;
   isCompleted: boolean;
 }
@@ -42,6 +43,7 @@ function AuthenticatedApp() {
     setFilters, 
     setCurrentVacancyIndex, 
     setVacancies, 
+    setSearchResults,
     setCurrentApplicationId,
     appliedVacancyIds,
     markVacancyAsApplied,
@@ -77,7 +79,9 @@ function AuthenticatedApp() {
     setSuggestedKeywords(application.suggestedKeywords || []);
     setFilters(application.filters || {});
     setCurrentVacancyIndex(application.currentVacancyIndex || 0);
-    setVacancies(application.vacancies || []);
+    
+    // Use setSearchResults to restore both vacancies and totalFound
+    setSearchResults(application.vacancies || [], application.totalVacancies || 0);
     
     // Restore applied vacancy IDs
     if ((application as any).appliedVacancyIds && (application as any).appliedVacancyIds.length > 0) {
@@ -106,7 +110,7 @@ function AuthenticatedApp() {
     default:
       return (
         <Dashboard
-          user={user!}
+          user={user as User}
           onLogout={logout}
           onStartNewApplication={handleStartNewApplication}
           onContinueApplication={handleContinueApplication}

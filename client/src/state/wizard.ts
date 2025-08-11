@@ -245,19 +245,27 @@ export const useWizardStore = create<WizardState>()(
         set({ isSaving: true });
         
         try {
+          const keywords = state.selectedKeywords.map(k => k.text).filter(Boolean);
+          const applicationTitle = keywords.length > 0 
+            ? keywords.length <= 3 
+              ? keywords.join(', ')
+              : `${keywords.slice(0, 2).join(', ')} +${keywords.length - 2} more`
+            : 'Job Search';
+            
           const applicationData = {
-            title: state.selectedKeywords.map(k => k.text).join(', ') || 'Job Search',
+            title: applicationTitle,
             currentStep: ({ 
               'keywords': 1, 
               'confirm': 2, 
               'filters': 3, 
               'results': 4 
             })[state.currentStep] || 1,
-            selectedKeywords: state.selectedKeywords.map(k => k.text),
+            selectedKeywords: keywords,
             suggestedKeywords: state.aiSuggestions.map(s => s.text),
             filters: state.filters,
             currentVacancyIndex: state.currentVacancyIndex,
             vacancies: state.searchResults,
+            totalVacancies: state.totalFound,
             appliedVacancyIds: state.appliedVacancyIds,
             isCompleted: false
           };

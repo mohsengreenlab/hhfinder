@@ -25,7 +25,6 @@ interface JobApplication {
   filters: Record<string, any>;
   currentVacancyIndex: number;
   vacancies: any[];
-  searchResults: any[];
   totalVacancies: number;
 }
 
@@ -213,7 +212,7 @@ export function Dashboard({
                               {app.currentVacancyIndex > 0 && (
                                 <span>
                                   Viewing vacancy {app.currentVacancyIndex + 1}
-                                  {app.vacancies?.length && ` of ${app.vacancies.length}`}
+                                  {app.totalVacancies > 0 && ` of ${app.totalVacancies}`}
                                 </span>
                               )}
                             </div>
