@@ -15,6 +15,8 @@ Preferred communication style: Simple, everyday language.
 - Configured Google Gemini API integration with proper environment variable (GEMINI_API_KEY)
 - Updated AI models to use supported versions (gemini-1.5-flash, gemini-1.5-pro instead of 2.5 versions)
 - Implemented fallback cover letter generation for rate-limited scenarios
+- Fixed setGeneratedLetter undefined error by adding missing state variables in Step4Viewer component
+- Resolved plainDescription property issue by converting from descriptionHtmlSanitized
 - All core functionality verified working: keyword generation, filter matching, vacancy search, cover letter generation
 
 **Authentication and Session Management Addition (January 2025):**

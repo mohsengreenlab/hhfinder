@@ -18,7 +18,9 @@ import {
   HHVacanciesResponse, 
   HHVacancyDetail, 
   FilterMatchRequest,
-  FilterMatchResponse
+  FilterMatchResponse,
+  CoverLetterRequest,
+  CoverLetterResponse
 } from '@/types/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImprovedCoverLetterGenerator } from '@/components/ImprovedCoverLetterGenerator';
@@ -56,6 +58,10 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const [showCoverLetter, setShowCoverLetter] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [vacancyStatuses, setVacancyStatuses] = useState<Record<string, any>>({});
+  const [generatedLetter, setGeneratedLetter] = useState('');
+  const [selectedPromptTemplate, setSelectedPromptTemplate] = useState('default');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [savedPrompts, setSavedPrompts] = useState<any[]>([]);
 
 
 
@@ -747,7 +753,10 @@ ${jobInfo.description}`;
             employerName: vacancyDetail.employer?.name,
             areaName: vacancyDetail.area?.name,
             skillsList: vacancyDetail.key_skills?.map(skill => skill.name) || [],
-            plainDescription: vacancyDetail.plainDescription
+            plainDescription: vacancyDetail.descriptionHtmlSanitized
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
           }}
           onClose={() => setShowCoverLetter(false)}
         />
