@@ -1,5 +1,6 @@
-import { Home } from 'lucide-react';
+import { Home, Save, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useWizardStore } from '@/state/wizard';
 
 interface WizardHeaderProps {
   onHomeClick: () => void;
@@ -7,6 +8,8 @@ interface WizardHeaderProps {
 }
 
 export default function WizardHeader({ onHomeClick, currentStep }: WizardHeaderProps) {
+  const { isSaving, lastSavedAt, currentApplicationId } = useWizardStore();
+  
   const getStepTitle = (step?: string) => {
     switch (step) {
       case 'keywords':
@@ -20,6 +23,17 @@ export default function WizardHeader({ onHomeClick, currentStep }: WizardHeaderP
       default:
         return 'Job Search';
     }
+  };
+
+  const formatLastSaved = (date: Date | null) => {
+    if (!date) return '';
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    
+    if (minutes < 1) return 'Saved now';
+    if (minutes === 1) return 'Saved 1 minute ago';
+    return `Saved ${minutes} minutes ago`;
   };
 
   return (
@@ -39,6 +53,25 @@ export default function WizardHeader({ onHomeClick, currentStep }: WizardHeaderP
             {getStepTitle(currentStep)}
           </div>
         </div>
+        
+        {/* Auto-save indicator */}
+        {currentApplicationId && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            {isSaving ? (
+              <>
+                <Save className="h-4 w-4 animate-pulse text-blue-500" />
+                <span>Saving...</span>
+              </>
+            ) : lastSavedAt ? (
+              <>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>{formatLastSaved(lastSavedAt)}</span>
+              </>
+            ) : (
+              <span>Auto-save enabled</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

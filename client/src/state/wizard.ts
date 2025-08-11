@@ -68,6 +68,11 @@ export interface WizardState {
   currentVacancyIndex: number;
   totalFound: number;
   
+  // Auto-save state
+  currentApplicationId: number | null;
+  isSaving: boolean;
+  lastSavedAt: Date | null;
+  
   // Actions
   setStep: (step: WizardStep) => void;
   setCurrentStep: (step: number) => void;
@@ -81,6 +86,10 @@ export interface WizardState {
   setSearchResults: (results: any[], totalFound: number) => void;
   setVacancies: (vacancies: any[]) => void;
   setCurrentVacancyIndex: (index: number) => void;
+  
+  // Auto-save actions
+  autoSave: () => Promise<void>;
+  setCurrentApplicationId: (id: number | null) => void;
   
   // Transition actions
   startTransition: (from: WizardStep, to: WizardStep) => void;
@@ -145,6 +154,11 @@ export const useWizardStore = create<WizardState>()(
       searchResults: [],
       currentVacancyIndex: 0,
       totalFound: 0,
+      
+      // Auto-save state
+      currentApplicationId: null,
+      isSaving: false,
+      lastSavedAt: null,
 
       // Actions
       setStep: (step) => set({ currentStep: step }),
@@ -167,7 +181,11 @@ export const useWizardStore = create<WizardState>()(
         set({ aiSuggestions: keywords.map(text => ({ text, source: 'hh' as const })) });
       },
       
-      setSelectedKeywords: (keywords) => set({ selectedKeywords: keywords }),
+      setSelectedKeywords: (keywords) => {
+        set({ selectedKeywords: keywords });
+        // Auto-save when keywords are confirmed
+        setTimeout(() => get().autoSave(), 1000);
+      },
       
       addCustomKeyword: (text) => {
         const { selectedKeywords } = get();
@@ -190,17 +208,88 @@ export const useWizardStore = create<WizardState>()(
         set({
           filters: { ...filters, ...newFilters }
         });
+        // Auto-save when filters are updated
+        setTimeout(() => get().autoSave(), 1000);
       },
       
       setVacancies: (vacancies) => set({ searchResults: vacancies }),
       
-      setSearchResults: (results, totalFound) => set({
-        searchResults: results,
-        totalFound,
-        currentVacancyIndex: 0
-      }),
+      setSearchResults: (results, totalFound) => {
+        set({
+          searchResults: results,
+          totalFound,
+          currentVacancyIndex: 0
+        });
+        // Auto-save when search results are loaded
+        setTimeout(() => get().autoSave(), 1000);
+      },
       
-      setCurrentVacancyIndex: (index) => set({ currentVacancyIndex: index }),
+      setCurrentVacancyIndex: (index) => {
+        set({ currentVacancyIndex: index });
+        // Auto-save when user navigates between vacancies
+        setTimeout(() => get().autoSave(), 500);
+      },
+      
+      // Auto-save actions
+      autoSave: async () => {
+        const state = get();
+        
+        // Don't auto-save if on keywords step or no meaningful data
+        if (state.currentStep === 'keywords' || state.selectedKeywords.length === 0) {
+          return;
+        }
+        
+        set({ isSaving: true });
+        
+        try {
+          const applicationData = {
+            title: state.selectedKeywords.map(k => k.text).join(', ') || 'Job Search',
+            currentStep: ({ 
+              'keywords': 1, 
+              'confirm': 2, 
+              'filters': 3, 
+              'results': 4 
+            })[state.currentStep] || 1,
+            selectedKeywords: state.selectedKeywords.map(k => k.text),
+            suggestedKeywords: state.aiSuggestions.map(s => s.text),
+            filters: state.filters,
+            currentVacancyIndex: state.currentVacancyIndex,
+            vacancies: state.searchResults,
+            isCompleted: false
+          };
+          
+          let response;
+          if (state.currentApplicationId) {
+            // Update existing application
+            response = await fetch(`/api/applications/${state.currentApplicationId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(applicationData)
+            });
+          } else {
+            // Create new application
+            response = await fetch('/api/applications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(applicationData)
+            });
+          }
+          
+          if (response.ok) {
+            const savedApp = await response.json();
+            set({ 
+              currentApplicationId: savedApp.id,
+              lastSavedAt: new Date()
+            });
+          }
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+      
+      setCurrentApplicationId: (id) => set({ currentApplicationId: id }),
       
       // Transition actions
       startTransition: (from, to) => set({
@@ -270,7 +359,10 @@ export const useWizardStore = create<WizardState>()(
         filters: defaultFilters,
         searchResults: [],
         currentVacancyIndex: 0,
-        totalFound: 0
+        totalFound: 0,
+        currentApplicationId: null,
+        isSaving: false,
+        lastSavedAt: null
       })
     }),
     {

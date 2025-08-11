@@ -27,6 +27,15 @@ Preferred communication style: Simple, everyday language.
 - Integrated authentication protection across all API endpoints
 - Created initial admin user (username: admin, password: admin123)
 
+**Single Dashboard with Auto-Save (January 2025):**
+- Redesigned dashboard to single "My Applications" section eliminating confusing dual options
+- Implemented comprehensive auto-save functionality that automatically saves job searches during wizard navigation
+- Added visual auto-save indicators in wizard header showing save status and last saved time
+- Enhanced wizard store with automatic saving triggers on keyword confirmation, filter changes, and vacancy navigation
+- Added application deletion feature with confirmation dialog for managing saved searches
+- Created detailed application cards showing progress steps, keywords preview, and last viewed vacancy position
+- All searches are now automatically saved without user intervention and can be resumed exactly where left off
+
 # System Architecture
 
 ## Frontend Architecture

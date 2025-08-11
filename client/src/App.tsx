@@ -35,7 +35,16 @@ type AppState = 'dashboard' | 'admin' | 'wizard';
 function AuthenticatedApp() {
   const { user, isAuthenticated, isLoading, logout, setUser } = useAuth();
   const [appState, setAppState] = useState<AppState>('dashboard');
-  const { setCurrentStep, setSelectedKeywords, setSuggestedKeywords, setFilters, setCurrentVacancyIndex, setVacancies, reset } = useWizardStore();
+  const { 
+    setCurrentStep, 
+    setSelectedKeywords, 
+    setSuggestedKeywords, 
+    setFilters, 
+    setCurrentVacancyIndex, 
+    setVacancies, 
+    setCurrentApplicationId,
+    reset 
+  } = useWizardStore();
 
   if (isLoading) {
     return (
@@ -60,6 +69,7 @@ function AuthenticatedApp() {
 
   const handleContinueApplication = (application: JobApplication) => {
     // Restore the application state
+    setCurrentApplicationId(application.id);
     setCurrentStep(application.currentStep);
     setSelectedKeywords(application.selectedKeywords.map(k => typeof k === 'string' ? { text: k, source: 'custom' as const } : k));
     setSuggestedKeywords(application.suggestedKeywords || []);
