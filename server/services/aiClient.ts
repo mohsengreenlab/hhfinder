@@ -267,10 +267,7 @@ My technical expertise includes ${skills}, which align well with the position re
 I would welcome the opportunity to discuss how my skills and enthusiasm can contribute to your team's success. Thank you for considering my application, and I look forward to hearing from you soon.
 
 Best regards,
-[Your Name]
-
----
-Note: This cover letter was generated using a template due to AI service rate limits. For personalized AI-generated letters, please try again in a few minutes.`;
+[Your Name]`;
   }
 }
 
