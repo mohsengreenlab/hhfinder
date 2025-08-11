@@ -54,6 +54,7 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const queryClient = useQueryClient();
   
   const [showCoverLetter, setShowCoverLetter] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
   const [vacancyStatuses, setVacancyStatuses] = useState<Record<string, any>>({});
 
 

@@ -36,6 +36,15 @@ Preferred communication style: Simple, everyday language.
 - Created detailed application cards showing progress steps, keywords preview, and last viewed vacancy position
 - All searches are now automatically saved without user intervention and can be resumed exactly where left off
 
+**Unified Cover Letter System (January 2025):**
+- Fixed duplicate Save buttons issue by creating unified ImprovedCoverLetterGenerator component
+- Implemented single "Save your prompt" button replacing confusing dual save interfaces
+- Added comprehensive saved prompts management with database integration
+- Created user settings persistence for remembering last-used prompt preferences
+- Built proper error handling and validation for prompt operations
+- Added ability to load, edit, and delete saved prompts through clean interface
+- Enhanced user experience with clickable placeholder insertion and modern UI design
+
 # System Architecture
 
 ## Frontend Architecture
