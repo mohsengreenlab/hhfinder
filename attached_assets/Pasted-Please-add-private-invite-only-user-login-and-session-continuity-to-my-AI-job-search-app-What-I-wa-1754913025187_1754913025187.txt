@@ -1,0 +1,86 @@
+Please add private, invite-only user login and session continuity to my AI job search app.
+What I want
+
+    Private login (no public sign-ups)
+
+    Only I, the admin, can create and manage accounts.
+
+    I need a simple way to add, edit, or deactivate users (username + password).
+
+    Make it easy for me to update the list without deploying code again (for example: a small admin screen protected by my own admin login, or a simple “users list” I can edit safely).
+
+    Users should log in with a username and password. If the password is wrong, show a friendly error.
+
+    Keep it secure and private. This site is invite-only.
+
+    Pick up where you left off
+
+    After logging in, show a welcome screen with two big choices:
+
+        Continue my last application
+
+        Start a new search
+
+    If the user has ongoing work, “Continue” should jump straight back into the 4-step flow at the exact step they left, with all their previous inputs intact (keywords, selected suggestions, filters, and the current vacancy they were viewing).
+
+    If the user chooses “Start a new search,” begin a fresh flow from Step 1, but keep a record of past applications so they can return to them later.
+
+    Progress that really sticks
+
+    Save each user’s progress automatically as they move through the wizard (step number, selected keywords, filters toggled on/off and their values, and the current vacancy index).
+
+    If the user closes the browser or comes back days later, they can continue seamlessly.
+
+    Keep the current design and tone of the app. Use the same style for buttons and headings (simple, friendly language).
+
+    A simple “My Applications” page
+
+    Give users a small page or panel listing their past searches/applications with:
+
+        A short title (e.g., “Frontend roles in Moscow”),
+
+        The date last edited,
+
+        Buttons: Continue, View, and Start similar search.
+
+    “Continue” reopens the exact step and context.
+
+    “Start similar search” copies the old settings into a new run so users can tweak and go.
+
+    Admin needs
+
+    I can log in as admin and:
+
+        Add a new user (username + password),
+
+        Reset a user’s password,
+
+        Deactivate or delete a user,
+
+        See when a user last signed in and whether they have in-progress work.
+
+    Keep the admin area simple and safe. It’s only for me.
+
+    User experience details
+
+    After login failure, show one clear error message with a retry.
+
+    After logout, send users back to the login screen.
+
+    If a user has no previous work, hide or disable the “Continue” option and explain why (“No previous application found yet”).
+
+    Use plain language throughout: “Log in,” “Continue,” “Start a new search,” “My applications,” “Log out.”
+
+Success checklist
+
+    I (admin) can add a user, share the credentials, and that user can log in.
+
+    A user can log in, start the wizard, close the app, come back, choose Continue, and land exactly where they left off with the same data.
+
+    A user can see a short list of their past applications and reopen any of them.
+
+    I (admin) can reset passwords and deactivate accounts.
+
+    Styling matches the current app and feels native.
+
+If anything is unclear, make reasonable choices that keep this private, simple, and secure, and stick to everyday language in the interface.

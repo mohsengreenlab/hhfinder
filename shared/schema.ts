@@ -176,12 +176,76 @@ export const insertSavedPromptSchema = z.object({
 
 export type InsertSavedPrompt = z.infer<typeof insertSavedPromptSchema>;
 
-// User schema (basic for session management)
-export interface User {
-  id: number;
-  username: string;
-}
+// User schema with authentication
+export const userSchema = z.object({
+  id: z.number(),
+  username: z.string(),
+  password: z.string(),
+  isAdmin: z.boolean(),
+  isActive: z.boolean(),
+  lastLoginAt: z.date().nullable(),
+  createdAt: z.date()
+});
 
-export interface InsertUser {
-  username: string;
-}
+export const insertUserSchema = z.object({
+  username: z.string().min(1).max(50),
+  password: z.string().min(6),
+  isAdmin: z.boolean().default(false)
+});
+
+export const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1)
+});
+
+// Job application schema for session continuity
+export const jobApplicationSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  title: z.string(),
+  currentStep: z.number(),
+  selectedKeywords: z.array(z.string()),
+  suggestedKeywords: z.array(z.string()),
+  filters: z.record(z.any()),
+  currentVacancyIndex: z.number(),
+  vacancies: z.array(z.any()),
+  lastEditedAt: z.date(),
+  createdAt: z.date(),
+  isCompleted: z.boolean()
+});
+
+export const insertJobApplicationSchema = z.object({
+  userId: z.number(),
+  title: z.string().min(1),
+  currentStep: z.number().min(1).max(4),
+  selectedKeywords: z.array(z.string()).default([]),
+  suggestedKeywords: z.array(z.string()).default([]),
+  filters: z.record(z.any()).default({}),
+  currentVacancyIndex: z.number().default(0),
+  vacancies: z.array(z.any()).default([]),
+  isCompleted: z.boolean().default(false)
+});
+
+export const updateJobApplicationSchema = insertJobApplicationSchema.partial().omit({ userId: true });
+
+// Admin user management schemas
+export const createUserSchema = z.object({
+  username: z.string().min(1).max(50),
+  password: z.string().min(6),
+  isAdmin: z.boolean().default(false)
+});
+
+export const updateUserSchema = z.object({
+  username: z.string().min(1).max(50).optional(),
+  password: z.string().min(6).optional(),
+  isActive: z.boolean().optional()
+});
+
+export type User = z.infer<typeof userSchema>;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type LoginRequest = z.infer<typeof loginSchema>;
+export type JobApplication = z.infer<typeof jobApplicationSchema>;
+export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
+export type UpdateJobApplication = z.infer<typeof updateJobApplicationSchema>;
+export type CreateUserRequest = z.infer<typeof createUserSchema>;
+export type UpdateUserRequest = z.infer<typeof updateUserSchema>;

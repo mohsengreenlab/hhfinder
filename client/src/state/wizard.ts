@@ -70,13 +70,16 @@ export interface WizardState {
   
   // Actions
   setStep: (step: WizardStep) => void;
+  setCurrentStep: (step: number) => void;
   setUserInput: (input: string) => void;
   setAISuggestions: (suggestions: Array<{ text: string; source: 'hh' }>) => void;
+  setSuggestedKeywords: (keywords: string[]) => void;
   setSelectedKeywords: (keywords: SelectedKeyword[]) => void;
   addCustomKeyword: (text: string) => void;
   removeKeyword: (index: number) => void;
-  setFilters: (filters: Partial<WizardFilters>) => void;
+  setFilters: (filters: Partial<WizardFilters> | Record<string, any>) => void;
   setSearchResults: (results: any[], totalFound: number) => void;
+  setVacancies: (vacancies: any[]) => void;
   setCurrentVacancyIndex: (index: number) => void;
   
   // Transition actions
@@ -146,9 +149,23 @@ export const useWizardStore = create<WizardState>()(
       // Actions
       setStep: (step) => set({ currentStep: step }),
       
+      setCurrentStep: (step) => {
+        const stepMap: Record<number, WizardStep> = {
+          1: 'keywords',
+          2: 'confirm', 
+          3: 'filters',
+          4: 'results'
+        };
+        set({ currentStep: stepMap[step] || 'keywords' });
+      },
+      
       setUserInput: (input) => set({ userInput: input }),
       
       setAISuggestions: (suggestions) => set({ aiSuggestions: suggestions }),
+      
+      setSuggestedKeywords: (keywords) => {
+        set({ aiSuggestions: keywords.map(text => ({ text, source: 'hh' as const })) });
+      },
       
       setSelectedKeywords: (keywords) => set({ selectedKeywords: keywords }),
       
@@ -174,6 +191,8 @@ export const useWizardStore = create<WizardState>()(
           filters: { ...filters, ...newFilters }
         });
       },
+      
+      setVacancies: (vacancies) => set({ searchResults: vacancies }),
       
       setSearchResults: (results, totalFound) => set({
         searchResults: results,

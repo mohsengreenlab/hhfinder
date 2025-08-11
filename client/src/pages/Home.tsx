@@ -5,7 +5,11 @@ import Step3Filters from '@/steps/Step3Filters';
 import Step4Viewer from '@/steps/Step4Viewer';
 import TransitionLoader from '@/components/TransitionLoader';
 
-export default function Home() {
+interface HomeProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function Home({ onBackToDashboard }: HomeProps = {}) {
   const { currentStep, isTransitioning, transitionFrom, transitionTo, completeTransition } = useWizardStore();
 
   // Show transition loader during transitions
