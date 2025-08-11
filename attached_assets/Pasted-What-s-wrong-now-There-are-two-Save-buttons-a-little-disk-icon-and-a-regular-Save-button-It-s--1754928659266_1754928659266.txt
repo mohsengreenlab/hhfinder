@@ -1,0 +1,52 @@
+What’s wrong now:
+There are two Save buttons (a little disk icon and a regular “Save” button). It’s confusing. Also, my last chosen prompt isn’t remembered when I move to the next vacancy.
+
+What I want:
+
+    One Save flow
+
+    Remove the duplicate Save controls.
+
+    Keep a single, clear button: “Save your prompt” (under the text area).
+
+    When clicked, if the prompt doesn’t have a name yet, show a small name field (or a mini dialog) right there: “Prompt name” → Save.
+
+    After saving, the new prompt appears in the dropdown and is auto-selected.
+
+    Manage saved prompts
+
+    In the same dropdown where I pick a prompt, let me delete any of my saved prompts (with a quick “Are you sure?”).
+
+    Optional but nice: allow rename; not required if it complicates things.
+
+    Prevent exact duplicate names, or ask if I want to overwrite when I use an existing name.
+
+    Remember my last choice
+
+    Whatever I used last (a default prompt or a custom/saved prompt) should stick when I go to the next vacancy and when I come back later.
+
+    In other words: don’t reset to “Custom Prompt” automatically. Keep the same selection and the same text unless I change it.
+
+    Per-user saving
+
+    Saved prompts and the “last used prompt” setting should be stored in the database for the logged-in user, so they persist across logouts and new sessions.
+
+    Small UX touches
+
+    Show a short success toast after saving or deleting.
+
+    If the browser blocks anything or a save fails, show a friendly error and don’t lose my text.
+
+    Keep the token chips ({{POSITION}}, {{COMPANY}}, etc.) working as they do now.
+
+Success checklist:
+
+    Only one Save button is visible and it clearly says “Save your prompt.”
+
+    I can name and save a prompt; it appears in the dropdown immediately.
+
+    I can delete past prompts from the same dropdown (with confirmation).
+
+    My last chosen prompt (default or custom) is remembered for the next vacancy and future sessions.
+
+    All saved prompts and the last-used selection are stored per user in the database.

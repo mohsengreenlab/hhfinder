@@ -5,7 +5,13 @@ import {
   type InsertJobApplication, 
   type UpdateJobApplication,
   type CreateUserRequest,
-  type UpdateUserRequest
+  type UpdateUserRequest,
+  type SavedPrompt,
+  type InsertSavedPrompt,
+  type UpdateSavedPrompt,
+  type UserSettings,
+  type InsertUserSettings,
+  type UpdateUserSettings
 } from "@shared/schema";
 
 export interface IStorage {
@@ -24,19 +30,40 @@ export interface IStorage {
   createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
   updateJobApplication(id: number, updates: UpdateJobApplication): Promise<JobApplication | undefined>;
   deleteJobApplication(id: number): Promise<void>;
+  
+  // Saved prompt management
+  getSavedPrompt(id: number): Promise<SavedPrompt | undefined>;
+  getSavedPromptsByUser(userId: number): Promise<SavedPrompt[]>;
+  createSavedPrompt(prompt: InsertSavedPrompt): Promise<SavedPrompt>;
+  updateSavedPrompt(id: number, updates: UpdateSavedPrompt): Promise<SavedPrompt | undefined>;
+  deleteSavedPrompt(id: number): Promise<void>;
+  getSavedPromptByUserAndName(userId: number, name: string): Promise<SavedPrompt | undefined>;
+  
+  // User settings management
+  getUserSettings(userId: number): Promise<UserSettings | undefined>;
+  createUserSettings(settings: InsertUserSettings): Promise<UserSettings>;
+  updateUserSettings(userId: number, updates: UpdateUserSettings): Promise<UserSettings | undefined>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private jobApplications: Map<number, JobApplication>;
+  private savedPrompts: Map<number, SavedPrompt>;
+  private userSettings: Map<number, UserSettings>;
   private userIdCounter: number;
   private appIdCounter: number;
+  private promptIdCounter: number;
+  private settingsIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.jobApplications = new Map();
+    this.savedPrompts = new Map();
+    this.userSettings = new Map();
     this.userIdCounter = 1;
     this.appIdCounter = 1;
+    this.promptIdCounter = 1;
+    this.settingsIdCounter = 1;
     
     // Create default admin user
     this.createDefaultAdmin();
@@ -147,6 +174,85 @@ export class MemStorage implements IStorage {
 
   async deleteJobApplication(id: number): Promise<void> {
     this.jobApplications.delete(id);
+  }
+
+  // Saved prompt management methods
+  async getSavedPrompt(id: number): Promise<SavedPrompt | undefined> {
+    return this.savedPrompts.get(id);
+  }
+
+  async getSavedPromptsByUser(userId: number): Promise<SavedPrompt[]> {
+    return Array.from(this.savedPrompts.values())
+      .filter(prompt => prompt.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createSavedPrompt(promptData: InsertSavedPrompt): Promise<SavedPrompt> {
+    const prompt: SavedPrompt = {
+      id: this.promptIdCounter++,
+      ...promptData,
+      createdAt: new Date()
+    };
+    this.savedPrompts.set(prompt.id, prompt);
+    return prompt;
+  }
+
+  async updateSavedPrompt(id: number, updates: UpdateSavedPrompt): Promise<SavedPrompt | undefined> {
+    const prompt = this.savedPrompts.get(id);
+    if (!prompt) return undefined;
+
+    const updatedPrompt: SavedPrompt = {
+      ...prompt,
+      ...updates,
+    };
+    this.savedPrompts.set(id, updatedPrompt);
+    return updatedPrompt;
+  }
+
+  async deleteSavedPrompt(id: number): Promise<void> {
+    this.savedPrompts.delete(id);
+  }
+
+  async getSavedPromptByUserAndName(userId: number, name: string): Promise<SavedPrompt | undefined> {
+    return Array.from(this.savedPrompts.values()).find(
+      prompt => prompt.userId === userId && prompt.name === name
+    );
+  }
+
+  // User settings management methods
+  async getUserSettings(userId: number): Promise<UserSettings | undefined> {
+    return Array.from(this.userSettings.values()).find(
+      settings => settings.userId === userId
+    );
+  }
+
+  async createUserSettings(settingsData: InsertUserSettings): Promise<UserSettings> {
+    const settings: UserSettings = {
+      id: this.settingsIdCounter++,
+      ...settingsData,
+      updatedAt: new Date()
+    };
+    this.userSettings.set(settings.id, settings);
+    return settings;
+  }
+
+  async updateUserSettings(userId: number, updates: UpdateUserSettings): Promise<UserSettings | undefined> {
+    let settings = await this.getUserSettings(userId);
+    
+    if (!settings) {
+      // Create new settings if they don't exist
+      settings = await this.createUserSettings({ userId, ...updates });
+    } else {
+      const updatedSettings: UserSettings = {
+        ...settings,
+        ...updates,
+        updatedAt: new Date()
+      };
+      this.userSettings.set(settings.id, updatedSettings);
+      settings = updatedSettings;
+    }
+    
+    return settings;
   }
 }
 

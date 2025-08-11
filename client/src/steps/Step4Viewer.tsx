@@ -6,17 +6,11 @@ import {
   ExternalLink, 
   FileText, 
   Filter,
-  Copy,
-  Download,
-  X,
-  Save,
   Home,
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import LoadingLines from '@/components/LoadingLines';
 import { useWizardStore } from '@/state/wizard';
@@ -24,13 +18,10 @@ import {
   HHVacanciesResponse, 
   HHVacancyDetail, 
   FilterMatchRequest,
-  FilterMatchResponse,
-  CoverLetterRequest,
-  CoverLetterResponse,
-  SavedPrompt,
-  InsertSavedPrompt
+  FilterMatchResponse
 } from '@/types/api';
 import { useToast } from '@/hooks/use-toast';
+import { ImprovedCoverLetterGenerator } from '@/components/ImprovedCoverLetterGenerator';
 
 const searchLoadingMessages = [
   "Calibrating scanners…",
@@ -39,12 +30,7 @@ const searchLoadingMessages = [
   "Finding perfect matches…"
 ];
 
-const letterLoadingMessages = [
-  "Crafting your cover letter…",
-  "Polishing tone…",
-  "Adding personal touch…",
-  "Almost there…"
-];
+
 
 interface Step4ViewerProps {
   onBackToDashboard?: () => void;
@@ -68,49 +54,9 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const queryClient = useQueryClient();
   
   const [showCoverLetter, setShowCoverLetter] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [selectedPromptTemplate, setSelectedPromptTemplate] = useState('default');
-  const [generatedLetter, setGeneratedLetter] = useState('');
-  const [currentPage, setCurrentPage] = useState(0);
-  const [showActualPrompt, setShowActualPrompt] = useState(false);
-  const [promptName, setPromptName] = useState('');
   const [vacancyStatuses, setVacancyStatuses] = useState<Record<string, any>>({});
 
-  // Load saved prompts from database
-  const { data: savedPrompts = [], refetch: refetchPrompts } = useQuery<SavedPrompt[]>({
-    queryKey: ['/api/saved-prompts'],
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
-  });
 
-  // Save prompt mutation
-  const savePromptMutation = useMutation<SavedPrompt, Error, InsertSavedPrompt>({
-    mutationFn: async (prompt) => {
-      const response = await fetch('/api/saved-prompts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prompt)
-      });
-      if (!response.ok) throw new Error('Failed to save prompt');
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchPrompts();
-      setPromptName('');
-      toast({ description: 'Prompt saved successfully' });
-    }
-  });
-
-  // Delete prompt mutation
-  const deletePromptMutation = useMutation<void, Error, number>({
-    mutationFn: async (id) => {
-      const response = await fetch(`/api/saved-prompts/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete prompt');
-    },
-    onSuccess: () => {
-      refetchPrompts();
-      toast({ description: 'Prompt deleted successfully' });
-    }
-  });
 
   // Apply to vacancy - opens HH.ru and marks as applied
   const handleApplyToVacancy = () => {
@@ -792,205 +738,18 @@ ${jobInfo.description}`;
       )}
 
       {/* Cover Letter Section */}
-      {showCoverLetter && (
-        <div className="bg-white rounded-2xl shadow-lg p-8 animate-fade-in" data-testid="cover-letter-section">
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-slate-800">AI Cover Letter Generator</h3>
-              <Button
-                onClick={() => setShowCoverLetter(false)}
-                variant="ghost"
-                size="sm"
-                data-testid="close-cover-letter-button"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-slate-600">Generate a personalized cover letter for this position using AI or custom prompts</p>
-          </div>
-
-          {/* Prompt Templates */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Choose or customize your prompt
-            </label>
-            <div className="flex gap-2 mb-3">
-              <Select
-                value={selectedPromptTemplate}
-                onValueChange={setSelectedPromptTemplate}
-              >
-                <SelectTrigger className="flex-1" data-testid="prompt-template-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default Template</SelectItem>
-                  <SelectItem value="technical">Technical Focus</SelectItem>
-                  <SelectItem value="creative">Creative Approach</SelectItem>
-                  <SelectItem value="custom">Custom Prompt</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" data-testid="save-prompt-button">
-                <Save className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {selectedPromptTemplate === 'custom' && (
-              <div>
-                <Textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="Write your custom instructions for the cover letter..."
-                  className="h-32 text-sm"
-                  data-testid="custom-prompt-textarea"
-                />
-                
-                {/* Clickable Placeholders */}
-                <div className="flex flex-wrap gap-1 mt-2 mb-3">
-                  {['{{POSITION}}', '{{COMPANY}}', '{{LOCATION}}', '{{SKILLS}}', '{{DESCRIPTION}}'].map(placeholder => (
-                    <button
-                      key={placeholder}
-                      onClick={() => {
-                        const textarea = document.querySelector('[data-testid="custom-prompt-textarea"]') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const end = textarea.selectionEnd;
-                          const newValue = customPrompt.substring(0, start) + placeholder + customPrompt.substring(end);
-                          setCustomPrompt(newValue);
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
-                          }, 0);
-                        }
-                      }}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs border"
-                    >
-                      {placeholder}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Save/Load Prompts */}
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={promptName}
-                    onChange={(e) => setPromptName(e.target.value)}
-                    placeholder="Prompt name..."
-                    className="px-2 py-1 border border-slate-300 rounded text-xs flex-1"
-                  />
-                  <button
-                    onClick={() => {
-                      if (promptName.trim() && customPrompt.trim()) {
-                        savePromptMutation.mutate({
-                          name: promptName.trim(),
-                          prompt: customPrompt
-                        });
-                      }
-                    }}
-                    disabled={!promptName.trim() || !customPrompt.trim() || savePromptMutation.isPending}
-                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50"
-                  >
-                    {savePromptMutation.isPending ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-
-                {/* Saved Prompts */}
-                {savedPrompts.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs text-slate-600 mb-1">Saved prompts:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {savedPrompts.map(saved => (
-                        <div key={saved.id} className="flex items-center bg-slate-50 rounded border">
-                          <button
-                            onClick={() => setCustomPrompt(saved.prompt)}
-                            className="px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                          >
-                            {saved.name}
-                          </button>
-                          <button
-                            onClick={() => deletePromptMutation.mutate(saved.id)}
-                            disabled={deletePromptMutation.isPending}
-                            className="px-1 py-1 text-red-600 hover:bg-red-100 border-l disabled:opacity-50"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Actual Prompt Preview */}
-          <div className="mb-4">
-            <button
-              onClick={() => setShowActualPrompt(!showActualPrompt)}
-              className="text-sm text-slate-600 underline hover:text-slate-800"
-            >
-              {showActualPrompt ? 'Hide' : 'Show'} AI prompt
-            </button>
-            
-            {showActualPrompt && (
-              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded text-xs">
-                <div className="text-slate-700 font-mono whitespace-pre-wrap">
-                  {buildActualPrompt()}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Generate Button */}
-          <div className="mb-6">
-            <Button
-              onClick={generateCoverLetter}
-              disabled={coverLetterMutation.isPending}
-              className="bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
-              data-testid="generate-letter-button"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Generate Cover Letter
-            </Button>
-          </div>
-
-          {/* Generated Letter */}
-          {(coverLetterMutation.isPending || generatedLetter) && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4" data-testid="generated-content">
-              {coverLetterMutation.isPending ? (
-                <LoadingLines messages={letterLoadingMessages} className="py-4" />
-              ) : (
-                <div>
-                  <Textarea
-                    value={generatedLetter}
-                    onChange={(e) => setGeneratedLetter(e.target.value)}
-                    className="w-full h-64 resize-none border-0 bg-transparent focus:ring-0"
-                    data-testid="generated-letter-textarea"
-                  />
-                  
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      onClick={copyToClipboard}
-                      variant="outline"
-                      data-testid="copy-letter-button"
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy
-                    </Button>
-                    <Button
-                      onClick={downloadAsText}
-                      variant="outline"
-                      data-testid="download-letter-button"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download .txt
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      {showCoverLetter && vacancyDetail && (
+        <ImprovedCoverLetterGenerator
+          vacancy={{
+            id: vacancyDetail.id,
+            name: vacancyDetail.name,
+            employerName: vacancyDetail.employer?.name,
+            areaName: vacancyDetail.area?.name,
+            skillsList: vacancyDetail.key_skills?.map(skill => skill.name) || [],
+            plainDescription: vacancyDetail.plainDescription
+          }}
+          onClose={() => setShowCoverLetter(false)}
+        />
       )}
     </div>
   );

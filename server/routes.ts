@@ -20,6 +20,7 @@ import {
   coverLetterRequestSchema,
   coverLetterResponseSchema,
   insertSavedPromptSchema,
+  insertUserSettingsSchema,
   loginSchema,
   createUserSchema,
   updateUserSchema,
@@ -617,9 +618,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
-      // For now, return empty array since we don't have database setup
+      const user = (req as any).user as User;
+      const prompts = await storage.getSavedPromptsByUser(user.id);
+      
       res.locals.addTiming('db', Date.now() - startTime);
-      res.json([]);
+      res.json(prompts);
 
     } catch (error: any) {
       console.error('Get saved prompts error:', error);
@@ -635,23 +638,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      const user = (req as any).user as User;
       const validatedBody = insertSavedPromptSchema.parse(req.body);
+      const promptData = { ...validatedBody, userId: user.id };
       
-      // For now, just return a mock response since we don't have database setup
-      const mockResponse = {
-        id: Date.now(),
-        name: validatedBody.name,
-        prompt: validatedBody.prompt,
-        created_at: new Date()
-      };
+      // Check for duplicate names
+      const existingPrompt = await storage.getSavedPromptByUserAndName(user.id, validatedBody.name);
+      if (existingPrompt) {
+        return res.status(409).json({
+          error: 'A prompt with this name already exists',
+          existingPromptId: existingPrompt.id
+        });
+      }
+      
+      const prompt = await storage.createSavedPrompt(promptData);
       
       res.locals.addTiming('db', Date.now() - startTime);
-      res.json(mockResponse);
+      res.json(prompt);
 
     } catch (error: any) {
       console.error('Save prompt error:', error);
-      res.status(500).json({ 
+      res.status(400).json({ 
         error: 'Failed to save prompt',
+        message: error.message 
+      });
+    }
+  });
+
+  // DELETE /api/saved-prompts/:id
+  app.delete('/api/saved-prompts/:id', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const user = (req as any).user as User;
+      const promptId = parseInt(req.params.id);
+      
+      // Verify user owns this prompt
+      const prompt = await storage.getSavedPrompt(promptId);
+      if (!prompt || prompt.userId !== user.id) {
+        return res.status(404).json({ error: "Prompt not found" });
+      }
+      
+      await storage.deleteSavedPrompt(promptId);
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json({ success: true });
+
+    } catch (error: any) {
+      console.error('Delete prompt error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete prompt',
+        message: error.message 
+      });
+    }
+  });
+
+  // GET /api/user-settings
+  app.get('/api/user-settings', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const user = (req as any).user as User;
+      const settings = await storage.getUserSettings(user.id);
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(settings || null);
+
+    } catch (error: any) {
+      console.error('Get user settings error:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch user settings',
+        message: error.message 
+      });
+    }
+  });
+
+  // POST /api/user-settings
+  app.post('/api/user-settings', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const user = (req as any).user as User;
+      const validatedBody = insertUserSettingsSchema.parse(req.body);
+      
+      const settings = await storage.updateUserSettings(user.id, validatedBody);
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(settings);
+
+    } catch (error: any) {
+      console.error('Save user settings error:', error);
+      res.status(400).json({ 
+        error: 'Failed to save user settings',
         message: error.message 
       });
     }

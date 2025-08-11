@@ -168,13 +168,7 @@ export type CoverLetterResponse = z.infer<typeof coverLetterResponseSchema>;
 
 
 
-// Saved prompts schema
-export const insertSavedPromptSchema = z.object({
-  name: z.string().min(1),
-  prompt: z.string().min(1)
-});
-
-export type InsertSavedPrompt = z.infer<typeof insertSavedPromptSchema>;
+// This schema is defined below with the other prompt schemas
 
 // User schema with authentication
 export const userSchema = z.object({
@@ -251,6 +245,50 @@ export type LoginRequest = z.infer<typeof loginSchema>;
 export type JobApplication = z.infer<typeof jobApplicationSchema>;
 export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
 export type UpdateJobApplication = z.infer<typeof updateJobApplicationSchema>;
+
+// Saved Prompts Schema
+export const savedPromptSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  name: z.string(),
+  prompt: z.string(),
+  createdAt: z.date(),
+});
+
+export const insertSavedPromptSchema = z.object({
+  userId: z.number(),
+  name: z.string().min(1, "Prompt name is required"),
+  prompt: z.string().min(1, "Prompt text is required"),
+});
+
+export const updateSavedPromptSchema = insertSavedPromptSchema.partial().omit({ userId: true });
+
+export type SavedPrompt = z.infer<typeof savedPromptSchema>;
+export type InsertSavedPrompt = z.infer<typeof insertSavedPromptSchema>;
+export type UpdateSavedPrompt = z.infer<typeof updateSavedPromptSchema>;
+
+// User Settings Schema
+export const userSettingsSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  lastUsedPromptType: z.string().optional(), // 'default', 'technical', 'creative', or saved prompt ID
+  lastUsedPromptId: z.number().optional(), // For saved prompts
+  lastUsedCustomPrompt: z.string().optional(), // For custom prompt text
+  updatedAt: z.date(),
+});
+
+export const insertUserSettingsSchema = z.object({
+  userId: z.number(),
+  lastUsedPromptType: z.string().optional(),
+  lastUsedPromptId: z.number().optional(),
+  lastUsedCustomPrompt: z.string().optional(),
+});
+
+export const updateUserSettingsSchema = insertUserSettingsSchema.partial().omit({ userId: true });
+
+export type UserSettings = z.infer<typeof userSettingsSchema>;
+export type InsertUserSettings = z.infer<typeof insertUserSettingsSchema>;
+export type UpdateUserSettings = z.infer<typeof updateUserSettingsSchema>;
 export type CreateUserRequest = z.infer<typeof createUserSchema>;
 export type UpdateUserRequest = z.infer<typeof updateUserSchema>;
 
