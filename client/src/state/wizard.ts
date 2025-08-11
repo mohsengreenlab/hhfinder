@@ -370,24 +370,34 @@ export const useWizardStore = create<WizardState>()(
         }
       },
       
-      // Reset
-      reset: () => set({
-        currentStep: 'keywords',
-        isTransitioning: false,
-        transitionFrom: null,
-        transitionTo: null,
-        userInput: '',
-        aiSuggestions: [],
-        selectedKeywords: [],
-        filters: defaultFilters,
-        searchResults: [],
-        currentVacancyIndex: 0,
-        totalFound: 0,
-        appliedVacancyIds: [],
-        currentApplicationId: null,
-        isSaving: false,
-        lastSavedAt: null
-      })
+      // Reset - completely clear all state for a fresh start
+      reset: () => {
+        // Clear any existing search cache/context in localStorage
+        try {
+          localStorage.removeItem('hh-search-cache');
+          localStorage.removeItem('vacancy-cache');
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+        
+        set({
+          currentStep: 'keywords',
+          isTransitioning: false,
+          transitionFrom: null,
+          transitionTo: null,
+          userInput: '',
+          aiSuggestions: [],
+          selectedKeywords: [],
+          filters: { ...defaultFilters }, // Create a fresh copy
+          searchResults: [],
+          currentVacancyIndex: 0,
+          totalFound: 0,
+          appliedVacancyIds: [],
+          currentApplicationId: null,
+          isSaving: false,
+          lastSavedAt: null
+        });
+      }
     }),
     {
       name: 'job-wizard-storage',

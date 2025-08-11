@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,6 +36,7 @@ type AppState = 'dashboard' | 'admin' | 'wizard';
 function AuthenticatedApp() {
   const { user, isAuthenticated, isLoading, logout, setUser } = useAuth();
   const [appState, setAppState] = useState<AppState>('dashboard');
+  const queryClientInstance = useQueryClient();
   const { 
     setCurrentStep, 
     setSelectedKeywords, 
@@ -66,13 +67,24 @@ function AuthenticatedApp() {
   }
 
   const handleStartNewApplication = () => {
+    // Clear all cached data before starting a new search
+    queryClientInstance.invalidateQueries();
+    queryClientInstance.clear();
+    
     reset();
     setCurrentStep(1);
     setAppState('wizard');
   };
 
   const handleContinueApplication = (application: JobApplication) => {
-    // Restore the application state
+    // Clear all cached data before loading a different application
+    queryClientInstance.invalidateQueries();
+    queryClientInstance.clear();
+    
+    // First completely reset state to ensure clean slate
+    reset();
+    
+    // Then restore the specific application state
     setCurrentApplicationId(application.id);
     setCurrentStep(application.currentStep);
     setSelectedKeywords(application.selectedKeywords.map(k => typeof k === 'string' ? { text: k, source: 'custom' as const } : k));

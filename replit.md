@@ -56,6 +56,14 @@ Preferred communication style: Simple, everyday language.
 - Enhanced cover letter generator with copy-to-clipboard functionality for AI prompts
 - Improved overall user experience with gentle, reliable scrolling across desktop and mobile devices
 
+**Fixed Independent Search Context and State Management (January 2025):**
+- Resolved critical issue where different job searches shared cached data and progress counters
+- Implemented complete state isolation for each search with independent vacancy lists, totals, and progress tracking
+- Added comprehensive cache clearing when starting new searches or switching between saved applications
+- Enhanced reset functionality to clear localStorage and React Query cache for true independence
+- Ensured each "My Applications" card displays accurate search-specific numbers and progress
+- Fixed issue where continuing different searches showed incorrect shared totals and vacancy positions
+
 # System Architecture
 
 ## Frontend Architecture
