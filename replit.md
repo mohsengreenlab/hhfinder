@@ -48,6 +48,14 @@ Preferred communication style: Simple, everyday language.
 - Enhanced user experience with clickable placeholder insertion and modern UI design
 - Fixed prompt saving API error by correcting schema validation and request processing
 
+**Enhanced User Experience with Smooth Scrolling and AI Prompt Preview (January 2025):**
+- Added AI prompt preview toggle showing exact text sent to Gemini with all placeholders filled
+- Implemented smooth scrolling when "Generate Cover Letter" button is clicked to auto-scroll to generator panel
+- Added smooth scrolling to generated cover letter results for immediate visibility after AI completion
+- Created smooth scroll-to-top functionality when navigating between vacancies (Next/Previous buttons)
+- Enhanced cover letter generator with copy-to-clipboard functionality for AI prompts
+- Improved overall user experience with gentle, reliable scrolling across desktop and mobile devices
+
 # System Architecture
 
 ## Frontend Architecture

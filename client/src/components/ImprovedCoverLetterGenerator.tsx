@@ -63,6 +63,7 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptName, setSavePromptName] = useState('');
   const [promptToDelete, setPromptToDelete] = useState<SavedPrompt | null>(null);
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
 
   // Fetch saved prompts
   const { data: savedPrompts = [], refetch: refetchPrompts } = useQuery({
@@ -168,6 +169,100 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
     }
   });
 
+  // Build the exact AI prompt that will be sent to Gemini
+  const buildFinalPrompt = () => {
+    if (!vacancy) return '';
+    
+    const systemPrompt = `You write concise, polite cover letters in English for real job applicants.
+
+Requirements:
+- 150-220 words
+- 3 short paragraphs
+- Mention 2-4 relevant skills
+- Include 1 specific fact from the job posting
+- No fluff or clichés
+- Professional tone`;
+
+    let userPrompt = '';
+    
+    const jobInfo = {
+      position: vacancy.name,
+      company: vacancy.employerName || 'the company',
+      location: vacancy.areaName || 'location not specified',
+      skills: vacancy.skillsList?.join(', ') || 'skills not specified',
+      description: vacancy.plainDescription?.substring(0, 1000) || 'description not available'
+    };
+
+    switch (selectedPromptType) {
+      case 'technical':
+        userPrompt = `Write a technical cover letter for this software engineering position:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Required technologies: ${jobInfo.skills}
+
+Focus on technical experience, problem-solving skills, and specific technologies mentioned in the job description. Be professional but show technical expertise.
+
+Job description:
+${jobInfo.description}`;
+        break;
+        
+      case 'creative':
+        userPrompt = `Write a creative, engaging cover letter that shows personality while remaining professional:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Key skills: ${jobInfo.skills}
+
+Show enthusiasm, creativity, and how you'd add value to their team. Make it memorable but professional.
+
+Job description:
+${jobInfo.description}`;
+        break;
+        
+      case 'custom':
+        // For custom prompts, replace placeholders and return without system prompt
+        userPrompt = customPromptText
+          .replace(/\{\{POSITION\}\}/g, vacancy.name || 'the position')
+          .replace(/\{\{COMPANY\}\}/g, vacancy.employerName || 'the company')
+          .replace(/\{\{LOCATION\}\}/g, vacancy.areaName || 'location not specified')
+          .replace(/\{\{SKILLS\}\}/g, vacancy.skillsList?.join(', ') || 'skills not specified')
+          .replace(/\{\{DESCRIPTION\}\}/g, vacancy.plainDescription?.substring(0, 1500) || 'description not available');
+        
+        // Return only user prompt for custom templates
+        return userPrompt;
+        
+      default:
+        // Check if it's a saved prompt
+        const savedPrompt = savedPrompts.find(p => p.name === selectedPromptType);
+        if (savedPrompt) {
+          userPrompt = savedPrompt.prompt
+            .replace(/\{\{POSITION\}\}/g, vacancy.name || 'the position')
+            .replace(/\{\{COMPANY\}\}/g, vacancy.employerName || 'the company')
+            .replace(/\{\{LOCATION\}\}/g, vacancy.areaName || 'location not specified')
+            .replace(/\{\{SKILLS\}\}/g, vacancy.skillsList?.join(', ') || 'skills not specified')
+            .replace(/\{\{DESCRIPTION\}\}/g, vacancy.plainDescription?.substring(0, 1500) || 'description not available');
+          
+          // Return only user prompt for saved templates (no system prompt)
+          return userPrompt;
+        }
+        
+        // Default template - fallback if no saved prompt found
+        userPrompt = `Write a professional cover letter for this job:
+Position: ${jobInfo.position}
+Company: ${jobInfo.company}
+Location: ${jobInfo.location}
+Key skills: ${jobInfo.skills}
+
+Job description:
+${jobInfo.description}`;
+        break;
+    }
+
+    // Return system prompt + user prompt for default templates
+    return `${systemPrompt}\n\n${userPrompt}`;
+  };
+
   // Generate cover letter mutation
   const generateMutation = useMutation({
     mutationFn: async (prompt: string) => {
@@ -192,6 +287,18 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
     onSuccess: (data) => {
       setCoverLetterText(data.text);
       setIsGenerating(false);
+      
+      // Smooth scroll to the generated cover letter result
+      setTimeout(() => {
+        const coverLetterOutput = document.querySelector('[data-testid="cover-letter-output"]');
+        if (coverLetterOutput) {
+          coverLetterOutput.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }, 200);
     },
     onError: (error) => {
       setIsGenerating(false);
@@ -269,6 +376,19 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
 
     setIsGenerating(true);
     generateMutation.mutate(promptText);
+    
+    // Smooth scroll to show the cover letter generation area after clicking generate
+    setTimeout(() => {
+      const coverLetterSection = document.querySelector('[data-testid="cover-letter-section"]');
+      if (coverLetterSection) {
+        const rect = coverLetterSection.getBoundingClientRect();
+        const offset = window.pageYOffset + rect.bottom - window.innerHeight + 100;
+        window.scrollTo({
+          top: Math.max(0, offset),
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
   };
 
   const handleSavePrompt = () => {
@@ -312,6 +432,14 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
     if (coverLetterText) {
       await navigator.clipboard.writeText(coverLetterText);
       toast({ title: "Cover letter copied to clipboard!" });
+    }
+  };
+
+  const copyPromptToClipboard = async () => {
+    const finalPrompt = buildFinalPrompt();
+    if (finalPrompt) {
+      await navigator.clipboard.writeText(finalPrompt);
+      toast({ title: "AI prompt copied to clipboard!" });
     }
   };
 
@@ -370,6 +498,42 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
               ))}
             </SelectContent>
           </Select>
+
+          {/* Prompt Preview Toggle */}
+          <div className="flex items-center gap-2 mt-3">
+            <Button
+              onClick={() => setShowPromptPreview(!showPromptPreview)}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              {showPromptPreview ? 'Hide AI prompt' : 'Show AI prompt'}
+            </Button>
+            <span className="text-xs text-slate-500">See the exact text sent to AI</span>
+          </div>
+
+          {/* Prompt Preview */}
+          {showPromptPreview && (
+            <div className="mt-3 p-3 bg-slate-50 rounded-lg border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-700">Final AI Prompt (with placeholders filled)</span>
+                <Button
+                  onClick={copyPromptToClipboard}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-6"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copy
+                </Button>
+              </div>
+              <div className="bg-white rounded border p-3 max-h-48 overflow-y-auto">
+                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed">
+                  {buildFinalPrompt()}
+                </pre>
+              </div>
+            </div>
+          )}
 
           {/* Custom prompt textarea */}
           {(selectedPromptType === 'custom' || selectedPromptType.startsWith('saved-')) && (
@@ -459,7 +623,7 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
       )}
 
       {coverLetterText && !generateMutation.isPending && !isGenerating && (
-        <div className="mb-6">
+        <div className="mb-6" data-testid="cover-letter-output">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-lg font-medium text-slate-800">Your Cover Letter</h4>
             <div className="flex gap-2">

@@ -418,6 +418,14 @@ ${jobInfo.description}`;
     // Clear previous cover letter when navigating
     setGeneratedLetter('');
     setShowCoverLetter(false);
+    
+    // Smooth scroll to top of the page to show new vacancy header and home button
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }, 100);
   };
 
   const generateCoverLetter = () => {
@@ -714,7 +722,20 @@ ${jobInfo.description}`;
                 
                 <div className="flex items-center space-x-4">
                   <Button
-                    onClick={() => setShowCoverLetter(true)}
+                    onClick={() => {
+                      setShowCoverLetter(true);
+                      // Smooth scroll down to show the cover letter generator panel
+                      setTimeout(() => {
+                        const coverLetterSection = document.querySelector('[data-testid="cover-letter-section"]');
+                        if (coverLetterSection) {
+                          coverLetterSection.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                            inline: 'nearest'
+                          });
+                        }
+                      }, 100);
+                    }}
                     className="bg-emerald-600 text-white hover:bg-emerald-700"
                     data-testid="generate-cover-letter-button"
                   >
