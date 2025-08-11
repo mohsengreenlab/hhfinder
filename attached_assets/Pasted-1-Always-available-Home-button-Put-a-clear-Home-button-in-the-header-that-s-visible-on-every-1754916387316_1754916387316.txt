@@ -1,0 +1,67 @@
+1) Always-available Home button
+
+    Put a clear “Home” button in the header that’s visible on every screen (including all wizard steps and vacancy viewer).
+
+    Tapping Home should take the user to their dashboard / home page.
+
+    Do not lose progress when going Home. If they return to the wizard, they should land on the exact step and vacancy they left off.
+
+    After logout, take users back to the login screen as before.
+
+2) Apply only once per vacancy, and only if it still exists
+
+I want hard guarantees that users won’t apply twice to the same vacancy, and that we only apply to vacancies that are still available on HH.ru.
+
+Behavior I want:
+
+    Before sending an application, the app should:
+
+        Verify the vacancy still exists on HH.ru (use the vacancy detail endpoint; if HH returns “not found/archived” or similar, show a friendly message and skip).
+        GitHub
+
+        Check if we’ve already applied to this vacancy with this user (use HH “negotiations/responses” data to detect an existing response for the same vacancy; if one exists, mark it as Already applied and disable the Apply button).
+        GitHub
+        Speca
+
+    If a vacancy requires a mandatory test or is a direct type that HH does not allow applying to via API, show a short message like:
+    “This vacancy can’t be applied to through the API,” and disable Apply.
+    Speca
+
+    Handle resumed sessions: when a user comes back days later and hits Continue → Apply, the app must re-check the vacancy status on HH.ru right before applying. If it’s gone, show a friendly notice (“This vacancy has been removed”) and move them to the next available vacancy.
+    GitHub
+
+    Keep our own per-user record of applied vacancy IDs so the UI can instantly label items as Applied even before talking to HH; but HH should remain the source of truth (if HH shows an existing response, we respect that and prevent duplicates).
+    GitHub
+
+UI copy (plain language):
+
+    On vacancies:
+
+        Button states: Apply, Applied, Not available, Requires test
+
+        Messages:
+
+            “You already applied to this job.”
+
+            “This job is no longer available.”
+
+            “This job requires a test. Applying via the API isn’t supported.”
+            Speca
+
+    On resume/continue:
+
+        If the current vacancy disappeared, show a one-line banner and automatically jump to the next one.
+
+Success checklist:
+
+    The Home button is always visible and safe to click at any time; returning to the wizard restores the exact step and vacancy.
+
+    Trying to apply twice to the same vacancy is blocked every time (both by our local record and by checking HH negotiations/responses).
+
+    Right before any apply action, the app confirms the vacancy still exists via HH; missing/archived jobs never get an application sent.
+    GitHub
+
+    Vacancies that require a mandatory test (or are unsupported “direct” types) clearly show that API apply isn’t possible.
+    Speca
+
+If something is unclear, please choose the simplest approach that keeps things private, reliable, and in everyday language.

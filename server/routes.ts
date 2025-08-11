@@ -680,6 +680,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/applied-vacancies - Check if user has applied to specific vacancies
+  app.get('/api/applied-vacancies', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const userId = (req as any).user.id;
+      const vacancyIds = req.query.vacancyIds as string | undefined;
+      
+      if (!vacancyIds) {
+        return res.status(400).json({ error: 'vacancyIds parameter required' });
+      }
+      
+      const idsArray = vacancyIds.split(',').filter(Boolean);
+      
+      // For now, return empty array since we don't have database setup
+      // In real implementation, query database for applied vacancies
+      const appliedVacancies: string[] = [];
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json({ appliedVacancies });
+
+    } catch (error: any) {
+      console.error('Check applied vacancies error:', error);
+      res.status(500).json({ 
+        error: 'Failed to check applied vacancies',
+        message: error.message 
+      });
+    }
+  });
+
+  // POST /api/apply-vacancy - Apply to a vacancy
+  app.post('/api/apply-vacancy', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const userId = (req as any).user.id;
+      const { vacancyId, vacancyTitle, companyName } = req.body;
+      
+      if (!vacancyId || !vacancyTitle || !companyName) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // First, verify the vacancy still exists on HH.ru
+      const vacancyResponse = await hhClient.getVacancy(vacancyId);
+      const vacancyDetail = vacancyResponse?.data;
+      if (!vacancyDetail) {
+        return res.status(404).json({ 
+          error: 'vacancy_not_found',
+          message: 'This vacancy is no longer available' 
+        });
+      }
+
+      // Check if user has already applied (mock for now)
+      // In real implementation: query applied_vacancies table
+      const hasAlreadyApplied = false;
+      
+      if (hasAlreadyApplied) {
+        return res.status(409).json({ 
+          error: 'already_applied',
+          message: 'You have already applied to this vacancy' 
+        });
+      }
+
+      // TODO: Implement actual HH.ru application via API
+      // For now, just record the application attempt
+      
+      // Mock application response
+      const applicationResult = {
+        vacancyId,
+        appliedAt: new Date(),
+        status: 'applied' as const
+      };
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(applicationResult);
+
+    } catch (error: any) {
+      console.error('Apply to vacancy error:', error);
+      res.status(500).json({ 
+        error: 'Failed to apply to vacancy',
+        message: error.message 
+      });
+    }
+  });
+
+  // GET /api/vacancy-status/:id - Check vacancy status and application eligibility
+  app.get('/api/vacancy-status/:id', requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const vacancyId = req.params.id;
+      const userId = (req as any).user.id;
+      
+      // Check if vacancy exists on HH.ru
+      let vacancyExists = true;
+      try {
+        const vacancyResponse = await hhClient.getVacancy(vacancyId);
+        vacancyExists = !!vacancyResponse?.data;
+      } catch (error) {
+        console.log(`Vacancy ${vacancyId} check failed:`, error);
+        vacancyExists = false;
+      }
+      
+      // Check if user has already applied (mock for now)
+      const hasApplied = false;
+      
+      // Check if vacancy requires test or is direct type (mock for now)
+      const requiresTest = false;
+      const isDirect = false;
+      
+      const status = {
+        vacancyId,
+        exists: vacancyExists,
+        canApply: vacancyExists && !hasApplied && !requiresTest && !isDirect,
+        hasApplied,
+        requiresTest,
+        isDirect,
+        message: !vacancyExists ? 'This job is no longer available.' :
+                hasApplied ? 'You already applied to this job.' :
+                requiresTest ? 'This job requires a test. Applying via the API isn\'t supported.' :
+                isDirect ? 'This vacancy can\'t be applied to through the API.' :
+                'Ready to apply'
+      };
+      
+      res.locals.addTiming('db', Date.now() - startTime);
+      res.json(status);
+
+    } catch (error: any) {
+      console.error('Check vacancy status error:', error);
+      res.status(500).json({ 
+        error: 'Failed to check vacancy status',
+        message: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

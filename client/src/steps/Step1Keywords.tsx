@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useWizardStore } from '@/state/wizard';
 
-export default function Step1Keywords() {
+interface Step1KeywordsProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function Step1Keywords({ onBackToDashboard }: Step1KeywordsProps) {
   const { userInput, setUserInput, goNext } = useWizardStore();
   const [localInput, setLocalInput] = useState(userInput);
 

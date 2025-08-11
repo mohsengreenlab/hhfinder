@@ -249,3 +249,25 @@ export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
 export type UpdateJobApplication = z.infer<typeof updateJobApplicationSchema>;
 export type CreateUserRequest = z.infer<typeof createUserSchema>;
 export type UpdateUserRequest = z.infer<typeof updateUserSchema>;
+
+// Applied Vacancies schema for tracking job applications
+export const appliedVacancySchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  vacancyId: z.string(),
+  vacancyTitle: z.string(),
+  companyName: z.string(),
+  appliedAt: z.date(),
+  status: z.enum(['applied', 'viewed', 'rejected', 'invited']).default('applied')
+});
+
+export const insertAppliedVacancySchema = z.object({
+  userId: z.number(),
+  vacancyId: z.string(),
+  vacancyTitle: z.string(),
+  companyName: z.string(),
+  status: z.enum(['applied', 'viewed', 'rejected', 'invited']).default('applied')
+});
+
+export type AppliedVacancy = z.infer<typeof appliedVacancySchema>;
+export type InsertAppliedVacancy = z.infer<typeof insertAppliedVacancySchema>;

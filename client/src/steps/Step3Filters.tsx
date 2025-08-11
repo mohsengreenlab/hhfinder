@@ -12,7 +12,11 @@ import Combobox from '@/components/Combobox';
 import { useWizardStore } from '@/state/wizard';
 import { HHDictionaries, HHArea } from '@/types/api';
 
-export default function Step3Filters() {
+interface Step3FiltersProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
   const { filters, setFilters, goBack, goNext } = useWizardStore();
   
   // Ensure all new fields exist (migration from old localStorage)

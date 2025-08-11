@@ -16,7 +16,11 @@ const loadingMessages = [
   "Processing AI recommendations…"
 ];
 
-export default function Step2Confirm() {
+interface Step2ConfirmProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
   const { 
     userInput, 
     aiSuggestions,

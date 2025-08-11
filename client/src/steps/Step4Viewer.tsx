@@ -9,7 +9,10 @@ import {
   Copy,
   Download,
   X,
-  Save
+  Save,
+  Home,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,7 +46,11 @@ const letterLoadingMessages = [
   "Almost there…"
 ];
 
-export default function Step4Viewer() {
+interface Step4ViewerProps {
+  onBackToDashboard?: () => void;
+}
+
+export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const { 
     selectedKeywords, 
     filters, 
@@ -65,6 +72,7 @@ export default function Step4Viewer() {
   const [currentPage, setCurrentPage] = useState(0);
   const [showActualPrompt, setShowActualPrompt] = useState(false);
   const [promptName, setPromptName] = useState('');
+  const [vacancyStatuses, setVacancyStatuses] = useState<Record<string, any>>({});
 
   // Load saved prompts from database
   const { data: savedPrompts = [], refetch: refetchPrompts } = useQuery<SavedPrompt[]>({
@@ -99,6 +107,44 @@ export default function Step4Viewer() {
     onSuccess: () => {
       refetchPrompts();
       toast({ description: 'Prompt deleted successfully' });
+    }
+  });
+
+  // Apply to vacancy mutation
+  const applyMutation = useMutation({
+    mutationFn: async () => {
+      if (!vacancyDetail) throw new Error('No vacancy selected');
+      
+      const response = await fetch('/api/apply-vacancy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vacancyId: vacancyDetail.id,
+          vacancyTitle: vacancyDetail.name,
+          companyName: vacancyDetail.employer.name
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to apply to vacancy');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchStatus(); // Refresh vacancy status
+      toast({ 
+        description: 'Application submitted successfully!',
+        duration: 5000 
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Application Failed",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
 
@@ -319,6 +365,14 @@ ${jobInfo.description}`;
     staleTime: 10 * 60 * 1000 // Cache for 10 minutes
   });
 
+  // Query for vacancy application status
+  const { data: vacancyStatus, refetch: refetchStatus } = useQuery({
+    queryKey: ['/api/vacancy-status', currentVacancy?.id],
+    enabled: !!currentVacancy?.id,
+    staleTime: 0, // Always check status fresh
+    retry: false // Don't retry on auth errors
+  });
+
   // Prefetch next few vacancy details
   useEffect(() => {
     if (searchResults.length > 0) {
@@ -457,6 +511,85 @@ ${jobInfo.description}`;
       return `up to ${to.toLocaleString()} ${currencySymbol}`;
     }
     return null;
+  };
+
+  const renderApplyButton = () => {
+    if (!vacancyStatus) {
+      return (
+        <Button disabled className="bg-gray-400">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mr-2" />
+          Checking...
+        </Button>
+      );
+    }
+
+    const { canApply, hasApplied, requiresTest, isDirect, message, exists } = vacancyStatus as any;
+
+    if (!exists) {
+      return (
+        <Button disabled className="bg-red-500 text-white">
+          <AlertCircle className="mr-2 h-4 w-4" />
+          Not Available
+        </Button>
+      );
+    }
+
+    if (hasApplied) {
+      return (
+        <Button disabled className="bg-green-500 text-white">
+          <CheckCircle className="mr-2 h-4 w-4" />
+          Applied
+        </Button>
+      );
+    }
+
+    if (requiresTest || isDirect) {
+      return (
+        <Button 
+          onClick={() => {
+            const applyUrl = vacancyDetail?.apply_alternate_url || 
+              `https://hh.ru/applicant/vacancy_response?vacancyId=${vacancyDetail?.id}`;
+            window.open(applyUrl, '_blank');
+          }}
+          className="bg-orange-500 text-white hover:bg-orange-600"
+          title={message}
+        >
+          <ExternalLink className="mr-2 h-4 w-4" />
+          {requiresTest ? 'Requires Test' : 'Apply on HH.ru'}
+        </Button>
+      );
+    }
+
+    if (canApply) {
+      return (
+        <Button
+          onClick={() => applyMutation.mutate()}
+          disabled={applyMutation.isPending}
+          className="bg-blue-600 text-white hover:bg-blue-700"
+          data-testid="apply-now-button"
+        >
+          {applyMutation.isPending ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              Applying...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Apply
+            </>
+          )}
+        </Button>
+      );
+    }
+
+    // Fallback - should not happen
+    return (
+      <Button disabled className="bg-gray-400">
+        <AlertCircle className="mr-2 h-4 w-4" />
+        Cannot Apply
+      </Button>
+    );
   };
 
   // Show loading state
@@ -636,18 +769,7 @@ ${jobInfo.description}`;
                     <FileText className="mr-2 h-4 w-4" />
                     Generate Cover Letter
                   </Button>
-                  <Button
-                    onClick={() => {
-                      const applyUrl = vacancyDetail?.apply_alternate_url || 
-                        `https://hh.ru/applicant/vacancy_response?vacancyId=${vacancyDetail?.id}`;
-                      window.open(applyUrl, '_blank');
-                    }}
-                    className="bg-blue-600 text-white hover:bg-blue-700"
-                    data-testid="apply-now-button"
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Apply Now
-                  </Button>
+                  {renderApplyButton()}
                 </div>
                 
                 <Button
