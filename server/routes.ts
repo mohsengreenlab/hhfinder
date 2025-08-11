@@ -20,6 +20,7 @@ import {
   coverLetterRequestSchema,
   coverLetterResponseSchema,
   insertSavedPromptSchema,
+  insertSavedPromptWithUserSchema,
   insertUserSettingsSchema,
   loginSchema,
   createUserSchema,
@@ -640,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user as User;
       const validatedBody = insertSavedPromptSchema.parse(req.body);
-      const promptData = { ...validatedBody, userId: user.id };
+      const promptData = insertSavedPromptWithUserSchema.parse({ ...validatedBody, userId: user.id });
       
       // Check for duplicate names
       const existingPrompt = await storage.getSavedPromptByUserAndName(user.id, validatedBody.name);

@@ -7,7 +7,7 @@ import {
   type CreateUserRequest,
   type UpdateUserRequest,
   type SavedPrompt,
-  type InsertSavedPrompt,
+  type InsertSavedPromptWithUser,
   type UpdateSavedPrompt,
   type UserSettings,
   type InsertUserSettings,
@@ -34,7 +34,7 @@ export interface IStorage {
   // Saved prompt management
   getSavedPrompt(id: number): Promise<SavedPrompt | undefined>;
   getSavedPromptsByUser(userId: number): Promise<SavedPrompt[]>;
-  createSavedPrompt(prompt: InsertSavedPrompt): Promise<SavedPrompt>;
+  createSavedPrompt(prompt: InsertSavedPromptWithUser): Promise<SavedPrompt>;
   updateSavedPrompt(id: number, updates: UpdateSavedPrompt): Promise<SavedPrompt | undefined>;
   deleteSavedPrompt(id: number): Promise<void>;
   getSavedPromptByUserAndName(userId: number, name: string): Promise<SavedPrompt | undefined>;
@@ -187,7 +187,7 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async createSavedPrompt(promptData: InsertSavedPrompt): Promise<SavedPrompt> {
+  async createSavedPrompt(promptData: InsertSavedPromptWithUser): Promise<SavedPrompt> {
     const prompt: SavedPrompt = {
       id: this.promptIdCounter++,
       ...promptData,

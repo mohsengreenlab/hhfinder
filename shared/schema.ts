@@ -256,15 +256,21 @@ export const savedPromptSchema = z.object({
 });
 
 export const insertSavedPromptSchema = z.object({
+  name: z.string().min(1, "Prompt name is required"),
+  prompt: z.string().min(1, "Prompt text is required"),
+});
+
+export const insertSavedPromptWithUserSchema = z.object({
   userId: z.number(),
   name: z.string().min(1, "Prompt name is required"),
   prompt: z.string().min(1, "Prompt text is required"),
 });
 
-export const updateSavedPromptSchema = insertSavedPromptSchema.partial().omit({ userId: true });
+export const updateSavedPromptSchema = insertSavedPromptSchema.partial();
 
 export type SavedPrompt = z.infer<typeof savedPromptSchema>;
 export type InsertSavedPrompt = z.infer<typeof insertSavedPromptSchema>;
+export type InsertSavedPromptWithUser = z.infer<typeof insertSavedPromptWithUserSchema>;
 export type UpdateSavedPrompt = z.infer<typeof updateSavedPromptSchema>;
 
 // User Settings Schema
