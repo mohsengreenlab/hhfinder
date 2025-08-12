@@ -291,26 +291,40 @@ export const useWizardStore = create<WizardState>()(
           totalFound,
           currentVacancyIndex: 0
         });
-        // Auto-save when search results are loaded
-        setTimeout(() => get().autoSave(), 1000);
+        // Only auto-save search results if we have meaningful data and aren't already saving
+        const state = get();
+        if (results.length > 0 && state.selectedKeywords.length > 0 && !state.isSaving) {
+          setTimeout(() => get().autoSave(), 1500);
+        }
       },
       
       setCurrentVacancyIndex: (index) => {
         set({ currentVacancyIndex: index });
-        // Auto-save when user navigates between vacancies
-        setTimeout(() => get().autoSave(), 500);
+        // Only auto-save on navigation if we have meaningful data and aren't already saving
+        const state = get();
+        if (state.selectedKeywords.length > 0 && !state.isSaving) {
+          setTimeout(() => get().autoSave(), 1000);
+        }
       },
       
       // Auto-save actions
       autoSave: async () => {
         const state = get();
         
-        // Don't auto-save if on keywords step or no meaningful data
-        if (state.currentStep === 'keywords' || state.selectedKeywords.length === 0) {
+        // Don't auto-save if on keywords step, no meaningful data, or already saving
+        if (state.currentStep === 'keywords' || 
+            state.selectedKeywords.length === 0 || 
+            state.isSaving) {
           return;
         }
         
-        set({ isSaving: true });
+        // Use a flag to prevent concurrent saves
+        const setState = (updates: any) => {
+          // Batch all state updates at once to prevent triggering loops
+          set(updates);
+        };
+        
+        setState({ isSaving: true });
         
         try {
           const keywords = state.selectedKeywords.map(k => k.text).filter(Boolean);
@@ -357,28 +371,33 @@ export const useWizardStore = create<WizardState>()(
           
           if (response.ok) {
             const savedApp = await response.json();
-            set({ 
+            // Batch all final state updates to prevent loops
+            setState({ 
               currentApplicationId: savedApp.id,
-              lastSavedAt: new Date()
+              lastSavedAt: new Date(),
+              isSaving: false
             });
+          } else {
+            setState({ isSaving: false });
           }
         } catch (error) {
           console.error('Auto-save failed:', error);
-        } finally {
-          set({ isSaving: false });
+          setState({ isSaving: false });
         }
       },
       
       setCurrentApplicationId: (id) => set({ currentApplicationId: id }),
       
       markVacancyAsApplied: (vacancyId) => {
-        const { appliedVacancyIds } = get();
+        const { appliedVacancyIds, isSaving } = get();
         if (!appliedVacancyIds.includes(vacancyId)) {
           set({ 
             appliedVacancyIds: [...appliedVacancyIds, vacancyId] 
           });
-          // Auto-save when marking vacancy as applied
-          setTimeout(() => get().autoSave(), 500);
+          // Auto-save when marking vacancy as applied (only if not already saving)
+          if (!isSaving) {
+            setTimeout(() => get().autoSave(), 1000);
+          }
         }
       },
       
