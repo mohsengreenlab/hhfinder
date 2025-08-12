@@ -6,7 +6,8 @@ import {
   FileText,
   Home,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1256,7 +1257,7 @@ ${jobInfo.description}`;
                         {vacancyDetail.employer.name}
                       </span>
                       <span className="flex items-center" data-testid="vacancy-location">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        <MapPin className="mr-2 h-4 w-4" />
                         {vacancyDetail.area.name}
                       </span>
                     </div>
