@@ -84,7 +84,9 @@ export const filterMatchRequestSchema = z.object({
   // New search options
   titleFirstSearch: z.boolean().optional(),
   useExactPhrases: z.boolean().optional(),
-  enableDebugMode: z.boolean().optional()
+  useAndAcrossPhrases: z.boolean().optional(),
+  enableDebugMode: z.boolean().optional(),
+  excludeWords: z.string().optional()
 });
 
 export const filterMatchResponseSchema = z.object({

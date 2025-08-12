@@ -43,10 +43,12 @@ export interface WizardFilters {
   educationLevel: string;
   workFormats: string[];
   
-  // New search options
+  // New search options - with persistence
   titleFirstSearch: boolean;
   useExactPhrases: boolean;
+  useAndAcrossPhrases: boolean;
   enableDebugMode: boolean;
+  excludeWords: string;
 }
 
 export interface WizardState {
@@ -155,10 +157,12 @@ const defaultFilters: WizardFilters = {
   educationLevel: '',
   workFormats: [],
   
-  // New search options - title-first ON by default for better relevance
-  titleFirstSearch: true,
-  useExactPhrases: true,
-  enableDebugMode: false
+  // New search options - with persistence
+  titleFirstSearch: JSON.parse(localStorage.getItem('titleFirstSearch') ?? 'true'),
+  useExactPhrases: JSON.parse(localStorage.getItem('useExactPhrases') ?? 'false'),
+  useAndAcrossPhrases: JSON.parse(localStorage.getItem('useAndAcrossPhrases') ?? 'true'),
+  enableDebugMode: JSON.parse(localStorage.getItem('enableDebugMode') ?? 'false'),
+  excludeWords: localStorage.getItem('excludeWords') ?? ''
 };
 
 export const useWizardStore = create<WizardState>()(
@@ -238,6 +242,24 @@ export const useWizardStore = create<WizardState>()(
       setFilters: (newFilters) => {
         const { filters, lastSearchFilters } = get();
         const updatedFilters = { ...filters, ...newFilters };
+        
+        // Persist toggles to localStorage
+        if ('titleFirstSearch' in newFilters) {
+          localStorage.setItem('titleFirstSearch', JSON.stringify(newFilters.titleFirstSearch));
+        }
+        if ('useExactPhrases' in newFilters) {
+          localStorage.setItem('useExactPhrases', JSON.stringify(newFilters.useExactPhrases));
+        }
+        if ('useAndAcrossPhrases' in newFilters) {
+          localStorage.setItem('useAndAcrossPhrases', JSON.stringify(newFilters.useAndAcrossPhrases));
+        }
+        if ('enableDebugMode' in newFilters) {
+          localStorage.setItem('enableDebugMode', JSON.stringify(newFilters.enableDebugMode));
+        }
+        if ('excludeWords' in newFilters) {
+          localStorage.setItem('excludeWords', newFilters.excludeWords || '');
+        }
+        
         set({
           filters: updatedFilters,
           searchNeedsRefresh: JSON.stringify(updatedFilters) !== JSON.stringify(lastSearchFilters)

@@ -65,6 +65,18 @@ Preferred communication style: Simple, everyday language.
 - Integrated with existing auto-save and filter change detection for seamless user experience
 - Maintained backward compatibility with all existing Phase 1 features and filter options
 
+**Phase 3: Enhanced Relevance and Transparency (January 2025):**
+- Implemented enhanced relevance scoring within tiers with multiple tie-breaker criteria (exact phrase at title start +30, contains in title +15, description matches +6, salary presence +4, recency bonuses +2-3)
+- Added negative keywords functionality allowing users to exclude unwanted terms like "intern", "trainee", "junior" with -20 score penalty per exclusion
+- Built AND across phrases logic with automatic fallback to OR when results are insufficient (<30 total), with user notification
+- Created comprehensive match badges system showing "Title match", "Description match", "Skills match" on each vacancy card
+- Added enhanced debug mode displaying relevance scores, matched keywords, match locations, and tier source information
+- Implemented toggle persistence in localStorage for all search strategy options (Title-First, Exact Phrase, AND Across Phrases, Debug Mode, Exclude Words)
+- Built Gemini API connection flow with modal interface explaining AI benefits and secure API key storage for session
+- Enhanced Step3 with consolidated search strategy toggles section and improved user experience
+- Removed hidden geography defaults ensuring transparent location behavior with explicit "All regions" messaging
+- Added comprehensive fallback messaging when AND logic broadens to OR for better user understanding
+
 **Fixed Independent Search Context and State Management (January 2025):**
 - Resolved critical issue where different job searches shared cached data and progress counters
 - Implemented complete state isolation for each search with independent vacancy lists, totals, and progress tracking

@@ -1,0 +1,76 @@
+Goal (phase 3): tighten relevance within tiers, remove hidden defaults, and make Gemini use crystal-clear.
+Please implement
+
+    Stronger tie-breakers inside each tier
+
+        Prefer exact phrase at the start of the title over anywhere else in title.
+
+        When phrases are multiple, try AND across phrases (all must match) with a graceful fallback to OR if results are too few (e.g., < 30 total after filters).
+
+        Secondary tie-breakers (in order): recency (newer first) → has salary listed → higher salary → verified/known employer (if you already have a signal).
+
+    Negative keywords
+
+        Add a small input on Step 2: “Exclude words/phrases” (e.g., “intern”, “trainee”, “junior”).
+
+        Apply exclusions across all tiers before merging.
+
+    Remove hidden geography defaults
+
+        You mentioned fallback defaults (e.g., area='1' Moscow) without Gemini. Please remove the silent default and:
+
+            Use the user’s chosen area (if any), or
+
+            Prompt clearly on Step 3: “No region selected — showing All regions (change)”.
+
+    Transparency in UI
+
+        On each vacancy card show tiny badges like: Title match, Description match, Skills match.
+
+        When debug is ON, also show which phrases matched and where (title/desc/skills), and which tier the item came from.
+
+    Persist toggles
+
+        Persist: “Title-first”, “Exact phrase”, “AND across phrases”, “Debug”, and the new “Exclude words”.
+
+        Keep Step 2/3 → Step 4 refresh behavior exactly as now.
+
+    Gemini connection flow
+
+        Add a “Connect Gemini” button where the banner shows. Clicking it opens a tiny modal explaining what changes when connected (smarter keyword expansion, synonyms, morphology), with a single field to paste GEMINI_API_KEY.
+
+        After saving, show me the exact AI-expanded keyword list (preview) with checkboxes so I can turn off anything I don’t want before searching.
+
+Acceptance
+
+    With multiple phrases selected, I see results where all phrases (AND) are present first; if too few, the app falls back to OR automatically and tells me “Broadened to any phrase to show more results.”
+
+    Badges appear and reflect where the match happened.
+
+    No silent Moscow default; region behavior is explicit.
+
+    Toggles persist.
+
+    “Connect Gemini” works; after adding the key, I can preview AI-expanded keywords before searching.
+
+Quick question (please confirm)
+
+    For exact phrase at start of title: can you detect match position (start vs middle) reliably from HH.ru results, or should we approximate by checking the name field client-side and ranking start matches higher?
+
+(Optional) If you need a simple scoring hint inside tiers
+
+    Start with HH.ru order, then add tiny boosts:
+
+        +30 if title starts with an exact phrase
+
+        +15 for title contains exact phrase (not start)
+
+        +6 per additional phrase matched
+
+        +4 if salary present, + up to +6 for higher salary buckets
+
+        +3 if posted in last 72h, +2 if last 7d
+
+        −20 if any exclude keyword hits
+
+Keep it lightweight and fast; only apply this within a tier after you get the HH.ru page.

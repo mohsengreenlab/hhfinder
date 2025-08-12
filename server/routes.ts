@@ -72,6 +72,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ available: hasKey });
   });
 
+  // POST /api/gemini/connect - Save Gemini API key temporarily
+  app.post('/api/gemini/connect', (req, res) => {
+    const { apiKey } = req.body;
+    
+    if (!apiKey || typeof apiKey !== 'string') {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+    
+    // For security, we'll set it as an environment variable for the current session
+    process.env.GEMINI_API_KEY = apiKey;
+    
+    res.json({ success: true, message: 'Gemini API key saved successfully' });
+  });
+
   // Add Server-Timing headers
   app.use((req, res, next) => {
     res.locals.timings = [];

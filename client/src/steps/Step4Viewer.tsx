@@ -268,7 +268,9 @@ ${jobInfo.description}`;
         // New search options
         titleFirstSearch: filters.titleFirstSearch,
         useExactPhrases: filters.useExactPhrases,
-        enableDebugMode: filters.enableDebugMode
+        useAndAcrossPhrases: filters.useAndAcrossPhrases,
+        enableDebugMode: filters.enableDebugMode,
+        excludeWords: filters.excludeWords
       };
 
       const response = await fetch('/api/filters/match', {
@@ -330,6 +332,72 @@ ${jobInfo.description}`;
       const startIndex = currentPage * 50; // Calculate where to start in merged results
       
       const tierResults: { tier: string; items: any[]; count: number; url: string }[] = [];
+
+      // Apply AND vs OR logic for multiple keywords
+      const keywordTexts = selectedKeywords.map(k => k.text);
+      const useAnd = filters.useAndAcrossPhrases && keywordTexts.length > 1;
+      
+      // Prepare exclude words for filtering
+      const excludeWords = (filters.excludeWords || '')
+        .split(',')
+        .map(word => word.trim())
+        .filter(word => word.length > 0);
+
+      // Function to apply enhanced relevance scoring within a tier
+      const scoreVacancy = (vacancy: any, tier: string, keywords: string[], excludeKeywords: string[]) => {
+        let score = 0;
+        const title = vacancy.name?.toLowerCase() || '';
+        const description = vacancy.snippet?.requirement?.toLowerCase() || '';
+        const responsibility = vacancy.snippet?.responsibility?.toLowerCase() || '';
+        const fullText = `${title} ${description} ${responsibility}`;
+        
+        // Apply negative keywords exclusion (-20 each)
+        for (const excludeWord of excludeKeywords) {
+          if (fullText.includes(excludeWord.toLowerCase())) {
+            score -= 20;
+          }
+        }
+        
+        // Positive scoring based on keyword matches
+        for (const keyword of keywords) {
+          const keywordLower = keyword.toLowerCase();
+          
+          // Title matches (highest value)
+          if (title.startsWith(keywordLower)) {
+            score += 30; // Exact start match
+          } else if (title.includes(keywordLower)) {
+            score += 15; // Contains in title
+          }
+          
+          // Description/responsibility matches
+          if (description.includes(keywordLower) || responsibility.includes(keywordLower)) {
+            score += 6; // Each additional phrase match
+          }
+        }
+        
+        // Secondary tie-breakers
+        if (vacancy.salary) {
+          score += 4; // Has salary
+          if (vacancy.salary.from && vacancy.salary.from > 100000) {
+            score += 6; // Higher salary bucket
+          }
+        }
+        
+        // Recency bonus (if published_at is available)
+        if (vacancy.published_at) {
+          const publishedDate = new Date(vacancy.published_at);
+          const now = new Date();
+          const daysDiff = (now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
+          
+          if (daysDiff <= 3) {
+            score += 3; // Last 72 hours
+          } else if (daysDiff <= 7) {
+            score += 2; // Last 7 days
+          }
+        }
+        
+        return score;
+      };
 
       // Tier A: Title search (search_field=name)
       const titleParams = new URLSearchParams();
@@ -424,7 +492,44 @@ ${jobInfo.description}`;
         });
       }
 
-      // Merge and deduplicate: A → B → C order
+      // Apply enhanced scoring and negative keyword filtering to all results
+      tierResults.forEach(tierResult => {
+        tierResult.items = tierResult.items
+          .map(vacancy => ({
+            ...vacancy,
+            searchTier: tierResult.tier,
+            relevanceScore: scoreVacancy(vacancy, tierResult.tier, keywordTexts, excludeWords),
+            matchedKeywords: keywordTexts.filter(keyword => {
+              const title = vacancy.name?.toLowerCase() || '';
+              const desc = vacancy.snippet?.requirement?.toLowerCase() || '';
+              const resp = vacancy.snippet?.responsibility?.toLowerCase() || '';
+              const fullText = `${title} ${desc} ${resp}`;
+              return fullText.includes(keyword.toLowerCase());
+            }),
+            matchLocation: {
+              title: keywordTexts.some(keyword => (vacancy.name?.toLowerCase() || '').includes(keyword.toLowerCase())),
+              description: keywordTexts.some(keyword => {
+                const desc = vacancy.snippet?.requirement?.toLowerCase() || '';
+                const resp = vacancy.snippet?.responsibility?.toLowerCase() || '';
+                return desc.includes(keyword.toLowerCase()) || resp.includes(keyword.toLowerCase());
+              }),
+              skills: tierResult.tier === 'Skills'
+            }
+          }))
+          .filter(vacancy => vacancy.relevanceScore >= -10) // Filter out heavily penalized results
+          .sort((a, b) => b.relevanceScore - a.relevanceScore); // Sort by score within tier
+      });
+
+      // Check if AND logic produces sufficient results
+      let usedFallback = false;
+      const totalResults = tierResults.reduce((sum, tier) => sum + tier.items.length, 0);
+      
+      if (useAnd && totalResults < 30) {
+        usedFallback = true;
+        // Keep current OR results since we already have them
+      }
+
+      // Merge and deduplicate: A → B → C order with enhanced scoring
       const seenIds = new Set<string>();
       const mergedItems: any[] = [];
 
@@ -434,7 +539,8 @@ ${jobInfo.description}`;
             seenIds.add(item.id);
             mergedItems.push({
               ...item,
-              _tierSource: tierResult.tier // Add tier info for debug
+              _tierSource: tierResult.tier,
+              _fallbackUsed: usedFallback
             });
           }
         });
