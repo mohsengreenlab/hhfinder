@@ -1,0 +1,63 @@
+Continue isolation: re-enable Step 4 piece by piece and catch the loop
+
+“Step 4 minimal” confirms the loop is inside Step 4. Please keep the instrumentation counters and:
+1) Turn minimal view off, then enable features in this order
+
+Toggle one on at a time; after each step, do a fresh search → Step 4 and paste counters (text only).
+
+Order:
+
+    ENABLE_STEP4_DEBUG_PANEL = true (everything else false)
+
+    ENABLE_STEP4_QUERY = true (debug still on; others false)
+
+    ENABLE_STEP4_SIGNATURE_EFFECT = true (query+debug on)
+
+    ENABLE_STEP4_SMOOTH_SCROLL = true
+
+    ENABLE_STEP4_PAGE_JUMP = true
+
+    ENABLE_STEP4_COVER_LETTER = true
+
+For the step that re-introduces the loop, paste:
+
+    renderCount, effectRuns.signature, effectRuns.querySuccess, setIndexCalls
+
+    the useQuery block (key/options), and the signature effect hook code
+
+2) Quick fixes to apply when you find the culprit
+If it’s the query:
+
+    Ensure queryKey is exactly ['vacancies', appId, searchSignature] (no inline objects).
+
+    Remove any select/onSuccess that writes to store fields used by searchSignature or pagination. If you must store meta, keep it in a useRef / local state that isn’t part of the signature deps.
+
+    Temporarily set refetchOnWindowFocus:false, retry:false, staleTime: 30_000.
+
+If it’s the signature effect:
+
+    Guard with a ref: if sigRef.current === currentSignature → return.
+
+    On change: reset/clamp index only if it actually changes; invalidate the query; then sigRef.current = currentSignature.
+
+    Do not call any keyword/filter/signature setters in Step 4.
+
+    The effect must be idempotent under React 18 Strict Mode.
+
+If it’s smooth scroll or page jump:
+
+    Only run on index change; if nextIndex === currentIndex → return (no set).
+
+    No effects that set the same state they read every render.
+
+If it’s the debug panel:
+
+    Ensure it does zero state writes during render; any persistence must be in a guarded useEffect that doesn’t touch signature deps.
+
+3) Acceptance
+
+    With all features ON and AUTO_SAVE_ENABLED = false, fresh search → Step 4, no overlay.
+
+    Counters for one fresh search show exactly one signature-triggered reset and one fetch start.
+
+    tsc --noEmit still clean.

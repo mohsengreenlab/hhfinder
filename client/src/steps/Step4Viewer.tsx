@@ -35,8 +35,14 @@ const searchLoadingMessages = [
   "Finding perfect matches…"
 ];
 
-// Environment toggle for binary search debugging
-const ENABLE_STEP4_MINIMAL = true; // Set to true to test minimal render
+// Environment toggles for binary search debugging
+const ENABLE_STEP4_MINIMAL = false; // Set to true to test minimal render
+const ENABLE_STEP4_DEBUG_PANEL = true; // Debug panel only
+const ENABLE_STEP4_QUERY = false; // React Query hook
+const ENABLE_STEP4_SIGNATURE_EFFECT = true; // Signature change effect
+const ENABLE_STEP4_SMOOTH_SCROLL = false; // Smooth scrolling effects
+const ENABLE_STEP4_PAGE_JUMP = false; // Page jump control
+const ENABLE_STEP4_COVER_LETTER = false; // Cover letter generator
 
 // Instrumentation counters
 let renderCount = 0;
@@ -312,60 +318,97 @@ ${jobInfo.description}`;
     enabled: selectedKeywords.length > 0
   });
 
+  // Signature ref to prevent infinite loops
+  const sigRef = useRef(currentSearchSignature);
+  
   // Generate and update search signature on mount and when dependencies change
   useEffect(() => {
-    updateSearchSignature();
+    if (!ENABLE_STEP4_SIGNATURE_EFFECT) return;
     
-    // If signature changed, clear old cache entries and reset pagination
-    if (currentSearchSignature && currentSearchSignature !== lastLoadedSignature) {
-      // Clear old cache entries for this application
-      queryClient.removeQueries({
-        predicate: (query) => {
-          return query.queryKey[0] === '/api/vacancies/tiered' && 
-                 (query.queryKey[2] !== currentSearchSignature || query.queryKey[1] !== currentApplicationId);
-        }
-      });
-      
-      // Reset pagination and results when signature changes
-      setCurrentPage(0);
-      setCurrentVacancyIndex(0);
-      setSearchResults([], 0);
-      
-      // Update the loaded signature
-      useWizardStore.setState({ lastLoadedSignature: currentSearchSignature });
-      
-      if (filters.enableDebugMode) {
-        console.log('🔄 Search signature changed:', {
-          oldSignature: lastLoadedSignature,
-          newSignature: currentSearchSignature,
-          clearedCache: true
-        });
-      }
+    effectRuns.signature++;
+    console.log(`Signature effect run #${effectRuns.signature}`);
+    
+    const newSignature = generateSearchSignature();
+    
+    // Guard: if signature hasn't actually changed, return early
+    if (sigRef.current === newSignature) {
+      return;
     }
-  }, [selectedKeywords, filters, currentApplicationId, queryClient, currentSearchSignature, lastLoadedSignature, setCurrentVacancyIndex, setSearchResults]);
+    
+    // Update signature and trigger cleanup/reset
+    sigRef.current = newSignature;
+    
+    // Clear old cache entries for this application
+    queryClient.removeQueries({
+      predicate: (query) => {
+        return query.queryKey[0] === '/api/vacancies/tiered' && 
+               (query.queryKey[2] !== newSignature || query.queryKey[1] !== currentApplicationId);
+      }
+    });
+    
+    // Reset pagination and results when signature changes
+    setCurrentPage(0);
+    if (currentVacancyIndex !== 0) {
+      setIndexCalls++;
+      setCurrentVacancyIndex(0);
+    }
+    setSearchResults([], 0);
+    
+    // Update the loaded signature in store (only if it changed)
+    if (lastLoadedSignature !== newSignature) {
+      useWizardStore.setState({ lastLoadedSignature: newSignature });
+    }
+    
+    if (filters.enableDebugMode) {
+      console.log('🔄 Search signature changed:', {
+        oldSignature: lastLoadedSignature,
+        newSignature: newSignature,
+        clearedCache: true,
+        effectRuns: effectRuns.signature
+      });
+    }
+  }, [selectedKeywords, filters, currentApplicationId]); // Removed dependencies that change as a result of this effect
 
   // Check for changes when entering Step 4 and clear results if needed
   useEffect(() => {
+    if (!ENABLE_STEP4_SIGNATURE_EFFECT) return;
+    
     const needsRefresh = checkSearchNeedsRefresh();
     if (needsRefresh || searchNeedsRefresh) {
       // Clear existing results and reset to fresh search
       setSearchResults([], 0);
-      setCurrentVacancyIndex(0);
+      if (currentVacancyIndex !== 0) {
+        setIndexCalls++;
+        setCurrentVacancyIndex(0);
+      }
       setCurrentPage(0);
       queryClient.invalidateQueries({ queryKey: ['/api/vacancies/tiered'] });
     }
-  }, [searchNeedsRefresh, checkSearchNeedsRefresh, setSearchResults, setCurrentVacancyIndex, queryClient]);
+  }, [searchNeedsRefresh]);
 
-  // Reset pagination when filters change
+  // Reset pagination when filters change (guarded)
   useEffect(() => {
-    setCurrentPage(0);
-    setCurrentVacancyIndex(0);
-  }, [hhFilters, setCurrentVacancyIndex]);
+    if (!ENABLE_STEP4_SIGNATURE_EFFECT) return;
+    
+    if (currentPage !== 0) {
+      setCurrentPage(0);
+    }
+    if (currentVacancyIndex !== 0) {
+      setIndexCalls++;
+      setCurrentVacancyIndex(0);
+    }
+  }, [hhFilters]);
 
   // Tiered search: Title → Description → Skills with merged results
   const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery({
-    queryKey: ['/api/vacancies/tiered', currentApplicationId, currentSearchSignature, currentPage],
+    queryKey: ['/api/vacancies/tiered', currentApplicationId, sigRef.current, currentPage],
     queryFn: async () => {
+      effectRuns.querySuccess++;
+      console.log(`Query execution #${effectRuns.querySuccess}`);
+      
+      if (!ENABLE_STEP4_QUERY) {
+        return { items: [], found: 0, pages: 0, page: 0, per_page: 0 };
+      }
       if (!hhFilters) return { items: [], found: 0, pages: 0, page: 0, per_page: 0 };
 
       // Prepare base parameters
