@@ -326,7 +326,7 @@ ${jobInfo.description}`;
         });
       }
     }
-  }, [selectedKeywords, filters, currentApplicationId, updateSearchSignature, queryClient, currentSearchSignature, lastLoadedSignature, setCurrentVacancyIndex, setSearchResults]);
+  }, [selectedKeywords, filters, currentApplicationId, queryClient, currentSearchSignature, lastLoadedSignature, setCurrentVacancyIndex, setSearchResults]);
 
   // Check for changes when entering Step 4 and clear results if needed
   useEffect(() => {
@@ -701,7 +701,7 @@ ${jobInfo.description}`;
         setSearchResults(newResults, vacanciesData.found);
       }
     }
-  }, [vacanciesData, setSearchResults, currentPage, markSearchCompleted]);
+  }, [vacanciesData, currentPage]);
 
   // Get current vacancy details
   const currentVacancy = searchResults[currentVacancyIndex];
