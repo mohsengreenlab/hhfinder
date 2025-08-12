@@ -74,6 +74,11 @@ export interface WizardState {
   isSaving: boolean;
   lastSavedAt: Date | null;
   
+  // Change tracking for live sync
+  lastSearchKeywords: SelectedKeyword[];
+  lastSearchFilters: WizardFilters;
+  searchNeedsRefresh: boolean;
+  
   // Actions
   setStep: (step: WizardStep) => void;
   setCurrentStep: (step: number) => void;
@@ -92,6 +97,11 @@ export interface WizardState {
   // Auto-save actions
   autoSave: () => Promise<void>;
   setCurrentApplicationId: (id: number | null) => void;
+  
+  // Search lifecycle
+  markSearchCompleted: () => void;
+  checkSearchNeedsRefresh: () => boolean;
+  jumpToVacancy: (targetIndex: number) => boolean;
   
   // Transition actions
   startTransition: (from: WizardStep, to: WizardStep) => void;
@@ -162,6 +172,11 @@ export const useWizardStore = create<WizardState>()(
       currentApplicationId: null,
       isSaving: false,
       lastSavedAt: null,
+      
+      // Change tracking for live sync
+      lastSearchKeywords: [],
+      lastSearchFilters: defaultFilters,
+      searchNeedsRefresh: false,
 
       // Actions
       setStep: (step) => set({ currentStep: step }),
@@ -185,7 +200,11 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setSelectedKeywords: (keywords) => {
-        set({ selectedKeywords: keywords });
+        const { lastSearchKeywords } = get();
+        set({ 
+          selectedKeywords: keywords,
+          searchNeedsRefresh: JSON.stringify(keywords) !== JSON.stringify(lastSearchKeywords)
+        });
         // Auto-save when keywords are confirmed
         setTimeout(() => get().autoSave(), 1000);
       },
@@ -207,9 +226,11 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setFilters: (newFilters) => {
-        const { filters } = get();
+        const { filters, lastSearchFilters } = get();
+        const updatedFilters = { ...filters, ...newFilters };
         set({
-          filters: { ...filters, ...newFilters }
+          filters: updatedFilters,
+          searchNeedsRefresh: JSON.stringify(updatedFilters) !== JSON.stringify(lastSearchFilters)
         });
         // Auto-save when filters are updated
         setTimeout(() => get().autoSave(), 1000);
@@ -370,6 +391,39 @@ export const useWizardStore = create<WizardState>()(
         }
       },
       
+      // Mark search as completed/up-to-date
+      markSearchCompleted: () => {
+        const { selectedKeywords, filters } = get();
+        set({
+          lastSearchKeywords: [...selectedKeywords],
+          lastSearchFilters: { ...filters },
+          searchNeedsRefresh: false
+        });
+      },
+      
+      // Check if search needs refresh due to keyword/filter changes
+      checkSearchNeedsRefresh: () => {
+        const { selectedKeywords, filters, lastSearchKeywords, lastSearchFilters } = get();
+        const keywordsChanged = JSON.stringify(selectedKeywords) !== JSON.stringify(lastSearchKeywords);
+        const filtersChanged = JSON.stringify(filters) !== JSON.stringify(lastSearchFilters);
+        
+        if (keywordsChanged || filtersChanged) {
+          set({ searchNeedsRefresh: true });
+          return true;
+        }
+        return false;
+      },
+      
+      // Jump to specific vacancy page
+      jumpToVacancy: (targetIndex: number) => {
+        const { searchResults } = get();
+        if (targetIndex >= 0 && targetIndex < searchResults.length) {
+          set({ currentVacancyIndex: targetIndex });
+          return true;
+        }
+        return false;
+      },
+      
       // Reset - completely clear all state for a fresh start
       reset: () => {
         // Clear any existing search cache/context in localStorage
@@ -395,7 +449,10 @@ export const useWizardStore = create<WizardState>()(
           appliedVacancyIds: [],
           currentApplicationId: null,
           isSaving: false,
-          lastSavedAt: null
+          lastSavedAt: null,
+          lastSearchKeywords: [],
+          lastSearchFilters: { ...defaultFilters },
+          searchNeedsRefresh: false
         });
       }
     }),

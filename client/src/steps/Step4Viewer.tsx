@@ -11,6 +11,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import LoadingLines from '@/components/LoadingLines';
 import { useWizardStore } from '@/state/wizard';
@@ -46,9 +47,13 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     currentVacancyIndex, 
     totalFound,
     appliedVacancyIds,
+    searchNeedsRefresh,
     setSearchResults,
     setCurrentVacancyIndex,
     markVacancyAsApplied,
+    markSearchCompleted,
+    checkSearchNeedsRefresh,
+    jumpToVacancy,
     goBack 
   } = useWizardStore();
   
@@ -62,6 +67,8 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const [selectedPromptTemplate, setSelectedPromptTemplate] = useState('default');
   const [customPrompt, setCustomPrompt] = useState('');
   const [savedPrompts, setSavedPrompts] = useState<any[]>([]);
+  const [pageJumpValue, setPageJumpValue] = useState('');
+  const [jumpError, setJumpError] = useState('');
 
 
 
@@ -274,6 +281,18 @@ ${jobInfo.description}`;
     enabled: selectedKeywords.length > 0
   });
 
+  // Check for changes when entering Step 4 and clear results if needed
+  useEffect(() => {
+    const needsRefresh = checkSearchNeedsRefresh();
+    if (needsRefresh || searchNeedsRefresh) {
+      // Clear existing results and reset to fresh search
+      setSearchResults([], 0);
+      setCurrentVacancyIndex(0);
+      setCurrentPage(0);
+      queryClient.invalidateQueries({ queryKey: ['/api/vacancies'] });
+    }
+  }, [searchNeedsRefresh, checkSearchNeedsRefresh, setSearchResults, setCurrentVacancyIndex, queryClient]);
+
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(0);
@@ -315,8 +334,9 @@ ${jobInfo.description}`;
   useEffect(() => {
     if (vacanciesData?.items) {
       if (currentPage === 0) {
-        // First page - replace results
+        // First page - replace results and mark search as completed
         setSearchResults(vacanciesData.items, vacanciesData.found);
+        markSearchCompleted();
       } else {
         // Subsequent pages - append results (avoid duplicates)
         const currentResults = searchResults || [];
@@ -326,7 +346,7 @@ ${jobInfo.description}`;
         setSearchResults(newResults, vacanciesData.found);
       }
     }
-  }, [vacanciesData, setSearchResults, currentPage]);
+  }, [vacanciesData, setSearchResults, currentPage, markSearchCompleted]);
 
   // Get current vacancy details
   const currentVacancy = searchResults[currentVacancyIndex];
@@ -400,6 +420,54 @@ ${jobInfo.description}`;
       });
     }
   });
+
+  const handlePageJump = () => {
+    setJumpError('');
+    const pageNumber = parseInt(pageJumpValue, 10);
+    
+    if (!pageJumpValue.trim()) {
+      setJumpError('Please enter a page number');
+      return;
+    }
+    
+    if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > totalFound) {
+      setJumpError(`Please enter a number between 1 and ${totalFound}`);
+      return;
+    }
+    
+    const targetIndex = pageNumber - 1; // Convert to 0-based index
+    const success = jumpToVacancy(targetIndex);
+    
+    if (success) {
+      setPageJumpValue('');
+      // Clear previous cover letter when jumping
+      setGeneratedLetter('');
+      setShowCoverLetter(false);
+      
+      // Smooth scroll to top
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }, 100);
+      
+      // Auto-save after jumping to new position
+      setTimeout(() => {
+        const { autoSave } = useWizardStore.getState();
+        autoSave();
+      }, 500);
+    } else {
+      setJumpError('Unable to jump to that vacancy');
+    }
+  };
+
+  const handlePageJumpKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handlePageJump();
+    }
+  };
 
   const handleNavigation = (direction: 'prev' | 'next') => {
     if (direction === 'prev' && currentVacancyIndex > 0) {
@@ -552,6 +620,28 @@ ${jobInfo.description}`;
     );
   };
 
+  // Show no keywords validation
+  if (!selectedKeywords.length) {
+    return (
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-800 mb-4">
+              No keywords selected
+            </h1>
+            <p className="text-slate-600 mb-6">
+              Please choose at least one keyword to search for job opportunities
+            </p>
+            <Button onClick={goBack} variant="default" data-testid="select-keywords-button">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Choose Keywords
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show loading state
   if (isMatchingFilters || isSearching) {
     return (
@@ -612,13 +702,43 @@ ${jobInfo.description}`;
       {/* Results Header */}
       <div className="bg-white rounded-2xl shadow-lg p-6 animate-fade-in">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h2 className="text-2xl font-bold text-slate-800" data-testid="results-count">
               {totalFound} jobs found
             </h2>
-            <p className="text-slate-600" data-testid="current-position">
-              Showing position {currentVacancyIndex + 1} of {totalFound}
-            </p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-slate-600" data-testid="current-position">
+                Showing position {currentVacancyIndex + 1} of {totalFound}
+              </p>
+              
+              {/* Page Jump Controls */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">Jump to:</span>
+                <input
+                  type="text"
+                  value={pageJumpValue}
+                  onChange={(e) => setPageJumpValue(e.target.value)}
+                  onKeyDown={handlePageJumpKeyDown}
+                  placeholder="1"
+                  className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="page-jump-input"
+                />
+                <Button
+                  onClick={handlePageJump}
+                  size="sm"
+                  variant="outline"
+                  className="px-3 py-1 text-sm"
+                  data-testid="page-jump-button"
+                >
+                  Go
+                </Button>
+              </div>
+            </div>
+            {jumpError && (
+              <p className="text-red-500 text-sm mt-1" data-testid="jump-error">
+                {jumpError}
+              </p>
+            )}
           </div>
           <Button
             type="button"

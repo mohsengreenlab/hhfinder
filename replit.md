@@ -64,6 +64,16 @@ Preferred communication style: Simple, everyday language.
 - Ensured each "My Applications" card displays accurate search-specific numbers and progress
 - Fixed issue where continuing different searches showed incorrect shared totals and vacancy positions
 
+**Live Search Sync and Page Jump Navigation (January 2025):**
+- Added live sync between Steps 2-4: changes to keywords or filters automatically refresh vacancy results in Step 4
+- Implemented smart change tracking to detect when search parameters have been modified
+- Added comprehensive validation requiring at least one keyword before proceeding to vacancy search
+- Built page jump functionality allowing users to jump directly to any vacancy by number (1-based indexing)
+- Added input validation with friendly error messages for invalid page numbers or out-of-range values
+- Enhanced navigation with Enter key support and smooth scrolling after jumps
+- Integrated auto-save functionality to maintain current position when jumping between vacancies
+- All changes maintain session continuity and auto-save the user's current search progress
+
 # System Architecture
 
 ## Frontend Architecture

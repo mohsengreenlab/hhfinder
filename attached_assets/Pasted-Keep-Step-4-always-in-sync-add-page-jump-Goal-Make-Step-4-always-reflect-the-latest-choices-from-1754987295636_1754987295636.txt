@@ -1,0 +1,90 @@
+Keep Step 4 always in sync + add page jump
+
+Goal:
+Make Step 4 always reflect the latest choices from Step 2 (keywords) and Step 3 (filters). Also add a simple page number control on Step 4 so users can jump straight to any vacancy.
+1) Live sync from Step 2 and Step 3 to Step 4
+
+What I want (behavior):
+
+    When I’m on Step 4 and go back to:
+
+        Step 2 (Keywords): if I add/remove/toggle selected keywords,
+
+        Step 3 (Filters): if I turn filters on/off or change any filter values,
+        then returning to Step 4 should refresh the search using the new keywords and filters.
+
+    The vacancy list, total count, and current position should all update to match the new selection.
+
+    If no keywords are selected, show a friendly message and ask me to choose at least one before continuing.
+
+Edge cases to handle:
+
+    Small changes (e.g., removing just one keyword or toggling one filter) still trigger a full, clean refresh.
+
+    Don’t mix old and new data—clear any stale results from before the change.
+
+    Keep auto-save working: my updated selection and my current position are saved like before.
+
+    Each saved application/search stays independent (no cross-contamination across saved items).
+
+Success check (acceptance):
+
+    Change keywords on Step 2 → go to Step 4 → I see updated totals and a different first vacancy, matching the new keywords.
+
+    Change filters on Step 3 (including enabling/disabling a filter group) → Step 4 updates to match.
+
+    The “current vacancy” position makes sense after a refresh (reset to start or clamp to a valid spot).
+
+2) Page number (jump to vacancy) on Step 4
+
+What I want (behavior):
+
+    Show on Step 4:
+
+        “X of Y” (current position and total),
+
+        A small number input (1…Y),
+
+        A “Go” button (and Enter works) to jump straight to that vacancy.
+
+    Keep “Previous/Next” working as-is.
+
+    Use the same smooth scrolling already used in the app.
+
+Edge cases to handle:
+
+    If I enter 0, negative, non-numeric, or bigger than the total, show a gentle validation message and don’t jump.
+
+    After any refresh from Step 2/3 changes, the page control must reflect the new total and valid position.
+
+Success check (acceptance):
+
+    I can jump from vacancy 2 to 150 by typing “150” and pressing Go/Enter.
+
+    “X of Y” always matches the real list and my actual position.
+
+UX notes
+
+    Keep wording and visuals consistent with the wizard.
+
+    After keyword/filter changes and after page jumps, show the tiny “Saved” indicator (reuse the existing auto-save feedback).
+
+    No extra steps or surprises—everything should feel seamless.
+
+Quick test plan (manual)
+
+    Start a search, confirm keywords (Step 2) and filters (Step 3), land on Step 4. Note totals and first few vacancies.
+
+    Go back to Step 2, uncheck a keyword, continue to Step 4 → results/totals change.
+
+    Go back to Step 3, enable a filter (e.g., education level or work format), adjust values, continue to Step 4 → results/totals change again.
+
+    Use the page input to jump to vacancy 25 → lands on 25 with smooth scroll.
+
+    Try “0”, “-1”, “99999”, and letters → friendly validation, no crash.
+
+    Switch to a different saved application → each one stays independent with correct totals/positions.
+
+    Refresh the browser → selections, current position, and validity still make sense.
+
+Please implement exactly as above and keep all user messages simple and friendly.
