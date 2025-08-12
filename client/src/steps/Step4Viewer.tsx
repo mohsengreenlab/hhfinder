@@ -318,6 +318,8 @@ ${jobInfo.description}`;
       descriptionCount: number;
       skillsCount: number;
       totalAfterDedup: number;
+      excludedCount: number;
+      usedFallback: boolean;
     };
   }>({
     queryKey: ['/api/vacancies/tiered', hhFilters, currentPage],
@@ -337,11 +339,32 @@ ${jobInfo.description}`;
       const keywordTexts = selectedKeywords.map(k => k.text);
       const useAnd = filters.useAndAcrossPhrases && keywordTexts.length > 1;
       
-      // Prepare exclude words for filtering
+      // Prepare exclude words for hard filtering
       const excludeWords = (filters.excludeWords || '')
         .split(',')
-        .map(word => word.trim())
+        .map(word => {
+          const trimmed = word.trim();
+          // Handle quoted phrases by removing quotes for matching but keeping phrase structure
+          return trimmed.startsWith('"') && trimmed.endsWith('"') 
+            ? trimmed.slice(1, -1) 
+            : trimmed;
+        })
         .filter(word => word.length > 0);
+
+      // Function to check if vacancy should be excluded (hard filter)
+      const isVacancyExcluded = (vacancy: any, excludeKeywords: string[]) => {
+        if (excludeKeywords.length === 0) return false;
+        
+        const title = vacancy.name?.toLowerCase() || '';
+        const description = vacancy.snippet?.requirement?.toLowerCase() || '';
+        const responsibility = vacancy.snippet?.responsibility?.toLowerCase() || '';
+        const skills = vacancy.key_skills?.map((skill: any) => skill.name?.toLowerCase()).join(' ') || '';
+        const fullText = `${title} ${description} ${responsibility} ${skills}`;
+        
+        return excludeKeywords.some(excludeWord => 
+          fullText.includes(excludeWord.toLowerCase())
+        );
+      };
 
       // Function to apply enhanced relevance scoring within a tier
       const scoreVacancy = (vacancy: any, tier: string, keywords: string[], excludeKeywords: string[]) => {
@@ -351,12 +374,7 @@ ${jobInfo.description}`;
         const responsibility = vacancy.snippet?.responsibility?.toLowerCase() || '';
         const fullText = `${title} ${description} ${responsibility}`;
         
-        // Apply negative keywords exclusion (-20 each)
-        for (const excludeWord of excludeKeywords) {
-          if (fullText.includes(excludeWord.toLowerCase())) {
-            score -= 20;
-          }
-        }
+        // No longer apply score penalties for excluded words - they're hard filtered out
         
         // Positive scoring based on keyword matches
         for (const keyword of keywords) {
@@ -492,9 +510,19 @@ ${jobInfo.description}`;
         });
       }
 
-      // Apply enhanced scoring and negative keyword filtering to all results
+      // Apply hard filtering and enhanced scoring to all results  
+      let excludedCount = 0;
       tierResults.forEach(tierResult => {
+        const originalCount = tierResult.items.length;
+        
         tierResult.items = tierResult.items
+          // First apply hard exclusion filter
+          .filter(vacancy => {
+            const excluded = isVacancyExcluded(vacancy, excludeWords);
+            if (excluded) excludedCount++;
+            return !excluded;
+          })
+          // Then apply scoring and metadata
           .map(vacancy => ({
             ...vacancy,
             searchTier: tierResult.tier,
@@ -503,7 +531,8 @@ ${jobInfo.description}`;
               const title = vacancy.name?.toLowerCase() || '';
               const desc = vacancy.snippet?.requirement?.toLowerCase() || '';
               const resp = vacancy.snippet?.responsibility?.toLowerCase() || '';
-              const fullText = `${title} ${desc} ${resp}`;
+              const skills = vacancy.key_skills?.map((skill: any) => skill.name?.toLowerCase()).join(' ') || '';
+              const fullText = `${title} ${desc} ${resp} ${skills}`;
               return fullText.includes(keyword.toLowerCase());
             }),
             matchLocation: {
@@ -513,10 +542,11 @@ ${jobInfo.description}`;
                 const resp = vacancy.snippet?.responsibility?.toLowerCase() || '';
                 return desc.includes(keyword.toLowerCase()) || resp.includes(keyword.toLowerCase());
               }),
-              skills: tierResult.tier === 'Skills'
+              skills: tierResult.tier === 'Skills' || vacancy.key_skills?.some((skill: any) => 
+                keywordTexts.some(keyword => skill.name?.toLowerCase().includes(keyword.toLowerCase()))
+              )
             }
           }))
-          .filter(vacancy => vacancy.relevanceScore >= -10) // Filter out heavily penalized results
           .sort((a, b) => b.relevanceScore - a.relevanceScore); // Sort by score within tier
       });
 
@@ -524,7 +554,10 @@ ${jobInfo.description}`;
       let usedFallback = false;
       const totalResults = tierResults.reduce((sum, tier) => sum + tier.items.length, 0);
       
-      if (useAnd && totalResults < 30) {
+      // Configurable threshold for AND->OR fallback
+      const AND_OR_THRESHOLD = 30; // Make this configurable in the future
+      
+      if (useAnd && totalResults < AND_OR_THRESHOLD) {
         usedFallback = true;
         // Keep current OR results since we already have them
       }
@@ -553,6 +586,8 @@ ${jobInfo.description}`;
           console.log(`  ${tier.tier}: ${tier.count} found, ${tier.items.length} fetched`);
         });
         console.log(`  Total after dedup: ${mergedItems.length}`);
+        console.log(`  Excluded: ${excludedCount} vacancies`);
+        console.log('  Final keyword list:', keywordTexts);
         console.log('  Tier URLs:', tierResults.map(t => ({ tier: t.tier, url: t.url })));
       }
 
@@ -570,7 +605,9 @@ ${jobInfo.description}`;
           titleCount: tierResults.find(t => t.tier === 'Title')?.count || 0,
           descriptionCount: tierResults.find(t => t.tier === 'Description')?.count || 0,
           skillsCount: tierResults.find(t => t.tier === 'Skills')?.count || 0,
-          totalAfterDedup: totalFound
+          totalAfterDedup: totalFound,
+          excludedCount,
+          usedFallback
         }
       };
     },
@@ -954,6 +991,14 @@ ${jobInfo.description}`;
             <h2 className="text-2xl font-bold text-slate-800" data-testid="results-count">
               {totalFound} jobs found
             </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Sorted: Title → Description → Skills
+              {vacanciesData?.tierInfo?.usedFallback && (
+                <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                  Broadened to any phrase to show more results
+                </span>
+              )}
+            </p>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-slate-600" data-testid="current-position">
                 Showing position {currentVacancyIndex + 1} of {totalFound}
@@ -1075,7 +1120,13 @@ ${jobInfo.description}`;
                       Current vacancy: #{currentVacancyIndex + 1} of {totalFound}
                       {currentVacancy?._tierSource && (
                         <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
-                          Source: {currentVacancy._tierSource} Tier
+                          {currentVacancy._tierSource} match
+                          {currentVacancy.matchedKeywords && currentVacancy.matchedKeywords.length > 0 && (
+                            <span className="text-xs text-blue-600 ml-1">
+                              ({currentVacancy.matchedKeywords.slice(0, 2).join(', ')}
+                              {currentVacancy.matchedKeywords.length > 2 && '...'})
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Search, MapPin, Building, Train, Tag, Filter } from 'lucide-react';
+import { ArrowLeft, Search, MapPin, Building, Train, Tag, Filter, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useQuery } from '@tanstack/react-query';
 import Combobox from '@/components/Combobox';
+import KeywordExpansionModal from '@/components/KeywordExpansionModal';
 import { useWizardStore } from '@/state/wizard';
 import { HHDictionaries, HHArea } from '@/types/api';
 
@@ -17,7 +18,8 @@ interface Step3FiltersProps {
 }
 
 export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
-  const { filters, setFilters, goBack, goNext } = useWizardStore();
+  const { filters, setFilters, goBack, goNext, selectedKeywords, setSelectedKeywords } = useWizardStore();
+  const [showKeywordExpansion, setShowKeywordExpansion] = useState(false);
   
   // Ensure all new fields exist (migration from old localStorage)
   const migratedFilters = {
@@ -646,10 +648,22 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
 
         {/* Search Options */}
         <div className="bg-slate-50 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-            <Search className="mr-3 h-5 w-5 text-primary-600" />
-            Search Options
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+              <Search className="mr-3 h-5 w-5 text-primary-600" />
+              Search Options
+            </h3>
+            <Button
+              type="button"
+              onClick={() => setShowKeywordExpansion(true)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Expand Keywords with AI
+            </Button>
+          </div>
           
           <div className="space-y-4">
             {/* Title-first toggle */}
@@ -732,6 +746,18 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
           </Button>
         </div>
       </div>
+
+      {/* Keyword Expansion Modal */}
+      <KeywordExpansionModal
+        isOpen={showKeywordExpansion}
+        onClose={() => setShowKeywordExpansion(false)}
+        onApply={(expandedKeywords) => {
+          // Convert string keywords back to keyword objects
+          const keywordObjects = expandedKeywords.map(text => ({ text, verified: true }));
+          setSelectedKeywords(keywordObjects);
+        }}
+        originalKeywords={selectedKeywords.map(k => k.text)}
+      />
     </div>
   );
 }

@@ -86,6 +86,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: 'Gemini API key saved successfully' });
   });
 
+  // POST /api/keywords/expand - Generate keyword expansions with Gemini
+  app.post('/api/keywords/expand', requireAuth, async (req, res) => {
+    try {
+      const { keywords } = req.body;
+      
+      if (!keywords || !Array.isArray(keywords)) {
+        return res.status(400).json({ error: 'Keywords array is required' });
+      }
+      
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(400).json({ error: 'Gemini API key not configured' });
+      }
+      
+      const { generateKeywordExpansions, createExpansionPreview } = await import('./services/keywordExpansion');
+      
+      const expansions = await generateKeywordExpansions(keywords);
+      const preview = createExpansionPreview(keywords, expansions);
+      
+      res.json({ 
+        expansions, 
+        preview,
+        success: true 
+      });
+      
+    } catch (error) {
+      console.error('Keyword expansion error:', error);
+      res.status(500).json({ error: 'Failed to generate keyword expansions' });
+    }
+  });
+
   // Add Server-Timing headers
   app.use((req, res, next) => {
     res.locals.timings = [];

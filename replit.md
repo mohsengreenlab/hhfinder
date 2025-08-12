@@ -8,6 +8,18 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+**Phase 4: Enhanced Search with Hard Filters and Keyword Expansion (January 2025):**
+- Implemented hard filtering for exclude words - completely removes matching vacancies instead of score penalties
+- Added Gemini-powered keyword expansion with preview and opt-in controls
+- Created smart expansion categories: exact phrases (always on), strong synonyms (default checked), weak/ambiguous (unchecked)
+- Enhanced match badges to show matched phrases with truncation for long lists
+- Added configurable AND/OR fallback threshold (30 results) with user notification
+- Implemented "Sorted: Title → Description → Skills" header with fallback messaging
+- Enhanced debug mode to show excluded counts and final keyword lists
+- Added skills matching using client-side detection from vacancy key_skills data
+- Ensured secure API key handling - server-only storage, never sent to client or logged
+- All Phase 3 features maintained: tiered search, relevance scoring, transparency
+
 **Migration to Replit Environment (January 2025):**
 - Successfully migrated from Replit Agent to standard Replit environment
 - Fixed JavaScript initialization error in Step4Viewer component (hhFilters variable scoping)

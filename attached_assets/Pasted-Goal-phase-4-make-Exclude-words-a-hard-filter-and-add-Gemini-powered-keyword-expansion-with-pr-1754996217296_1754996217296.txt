@@ -1,0 +1,62 @@
+Goal (phase 4): make “Exclude words” a hard filter, and add Gemini-powered keyword expansion with preview & guardrails.
+1) Exclude = hard filter (not a score penalty)
+
+    Current behavior uses a −20 score; please change to true exclusion across all tiers before merge (don’t show any vacancy containing an excluded word/phrase in title/desc/skills).
+
+    Keep case-insensitive and phrase-aware (quotes apply).
+
+    Show a tiny “Excluded: …” note in debug if a vacancy was filtered out.
+
+2) Gemini expansion (with preview + opt-in)
+
+    After I connect GEMINI_API_KEY in your modal, generate expansions (synonyms/morphological variants) in Russian & English, but don’t search yet.
+
+    Show a preview list grouped as:
+
+        Keep exact phrases (always on) — my selected phrases (quoted).
+
+        Strong synonyms (checked by default).
+
+        Weak/ambiguous (unchecked by default).
+
+    I can uncheck anything. Only the checked items are sent.
+
+    Cap expansions (e.g., max 8–12 total) to avoid noise.
+
+    Still apply our tiered search (Title → Description → Skills) and AND→OR fallback.
+
+3) AND/OR controls & thresholds
+
+    Keep “require AND across phrases” as default.
+
+    If results < 30 after filters, auto-fallback to OR and show: “Broadened to any phrase to show more results.” Make 30 configurable in code.
+
+4) Security & logging
+
+    Ensure the Gemini key is server-only (env), never sent to client or logs.
+
+    In debug, mask the key and only show the final keyword set being searched.
+
+5) Tiny UI tweaks
+
+    On Step 4 header: “Sorted: Title → Description → Skills.”
+
+    On each card badge, include the matched phrase(s) (truncated if long).
+
+Acceptance
+
+    Excluded phrases remove matching vacancies entirely (no leaks via other tiers).
+
+    After connecting Gemini, I see a preview with checkboxes; only checked expansions are used.
+
+    Title-first order remains; AND→OR fallback works and is messaged.
+
+    Debug shows: tiers, counts, merged total, excluded count, final keyword list.
+
+One quick confirmation, please
+
+    Skills tier support: confirm HH.ru’s search_field=skills is officially supported via /dictionaries (and what field name it returns). If not, fall back to tags/skills contained in the vacancy payload and approximate a “skills match” client-side. 
+
+If you want, I’ll paste my Gemini key right after you confirm the skills field.
+
+(For reference: your current fallback without Gemini joins keywords with OR and had a Moscow default area=1 earlier—glad that silent default is now removed; defaults like order_by=relevance and period=7 are still fine. The text-only keyword pipeline is clear and matches what you documented.) 
