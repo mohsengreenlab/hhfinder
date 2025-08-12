@@ -258,6 +258,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/applications', requireAuth, async (req, res) => {
     try {
       const user = (req as any).user as User;
+      
+      // Check if the user has reached Step 4 (based on presence of search results)
+      const { searchResults, currentVacancyIndex } = req.body;
+      if (!searchResults || searchResults.length === 0) {
+        return res.status(400).json({ 
+          error: "Cannot save before reaching Step 4",
+          message: "Searches are only saved once you reach the results viewer in Step 4."
+        });
+      }
+      
       const appData = insertJobApplicationSchema.parse({ ...req.body, userId: user.id });
       
       const application = await storage.createJobApplication(appData);
@@ -276,6 +286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingApp = await storage.getJobApplication(appId);
       if (!existingApp || existingApp.userId !== user.id) {
         return res.status(404).json({ error: "Application not found" });
+      }
+      
+      // Check if the update has reached Step 4 (based on presence of search results)
+      const { searchResults } = req.body;
+      if (searchResults !== undefined && (!searchResults || searchResults.length === 0)) {
+        return res.status(400).json({ 
+          error: "Cannot save before reaching Step 4",
+          message: "Searches are only saved once you reach the results viewer in Step 4."
+        });
       }
       
       const updates = updateJobApplicationSchema.parse(req.body);

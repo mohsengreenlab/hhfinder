@@ -119,6 +119,9 @@ export interface WizardState {
   // Current step
   currentStep: WizardStep;
   
+  // Step 4 tracking for auto-save policy
+  hasReachedStep4: boolean;
+  
   // Transition state
   isTransitioning: boolean;
   transitionFrom: WizardStep | null;
@@ -177,6 +180,7 @@ export interface WizardState {
   // Auto-save actions
   autoSave: () => Promise<void>;
   setCurrentApplicationId: (id: number | null) => void;
+  markReachedStep4: () => void;
   
   // Search lifecycle
   markSearchCompleted: () => void;
@@ -198,6 +202,7 @@ export interface WizardState {
   
   // Reset
   reset: () => void;
+  resetSearch: () => void;
 }
 
 const defaultFilters: WizardFilters = {
@@ -251,6 +256,7 @@ export const useWizardStore = create<WizardState>()(
       (set, get) => ({
       // Initial state
       currentStep: 'keywords',
+      hasReachedStep4: false,
       isTransitioning: false,
       transitionFrom: null,
       transitionTo: null,
@@ -306,15 +312,17 @@ export const useWizardStore = create<WizardState>()(
         if (process.env.NODE_ENV === 'development') {
           console.log(`Store: setSelectedKeywords(${keywords.length} keywords)`);
         }
-        const { lastSearchKeywords } = get();
+        const { lastSearchKeywords, hasReachedStep4 } = get();
         set({ 
           selectedKeywords: keywords,
           searchNeedsRefresh: JSON.stringify(keywords) !== JSON.stringify(lastSearchKeywords)
         });
-        // Update save signature to trigger centralized auto-save
-        const state = get();
-        const newSignature = generateSaveSignature({ ...state, selectedKeywords: keywords });
-        set({ saveSignature: newSignature });
+        // Only update save signature if we've reached Step 4
+        if (hasReachedStep4) {
+          const state = get();
+          const newSignature = generateSaveSignature({ ...state, selectedKeywords: keywords });
+          set({ saveSignature: newSignature });
+        }
       },
       
       // Commit keywords to canonical source (called on navigation Step 2 -> Step 3)
@@ -372,7 +380,7 @@ export const useWizardStore = create<WizardState>()(
         if (process.env.NODE_ENV === 'development') {
           console.log(`Store: setFilters(${Object.keys(newFilters).join(', ')})`);
         }
-        const { filters, lastSearchFilters } = get();
+        const { filters, lastSearchFilters, hasReachedStep4 } = get();
         const updatedFilters = { ...filters, ...newFilters };
         
         // Persist toggles to localStorage
@@ -396,10 +404,12 @@ export const useWizardStore = create<WizardState>()(
           filters: updatedFilters,
           searchNeedsRefresh: JSON.stringify(updatedFilters) !== JSON.stringify(lastSearchFilters)
         });
-        // Update save signature to trigger centralized auto-save
-        const newState = get();
-        const newSignature = generateSaveSignature(newState);
-        set({ saveSignature: newSignature });
+        // Only update save signature if we've reached Step 4
+        if (hasReachedStep4) {
+          const newState = get();
+          const newSignature = generateSaveSignature(newState);
+          set({ saveSignature: newSignature });
+        }
       },
       
       setVacancies: (vacancies) => set({ searchResults: vacancies }),
@@ -410,7 +420,7 @@ export const useWizardStore = create<WizardState>()(
           totalFound,
           currentVacancyIndex: 0
         });
-        // Update save signature to trigger centralized auto-save
+        // Update save signature to trigger centralized auto-save (should be in Step 4)
         const state = get();
         const newSignature = generateSaveSignature({ ...state, searchResults: results, totalFound, currentVacancyIndex: 0 });
         set({ saveSignature: newSignature });
@@ -421,7 +431,7 @@ export const useWizardStore = create<WizardState>()(
           console.log(`Store: setCurrentVacancyIndex(${index})`);
         }
         set({ currentVacancyIndex: index });
-        // Update save signature to trigger centralized auto-save
+        // Update save signature to trigger centralized auto-save (should be in Step 4)
         const state = get();
         const newSignature = generateSaveSignature({ ...state, currentVacancyIndex: index });
         set({ saveSignature: newSignature });
@@ -433,8 +443,8 @@ export const useWizardStore = create<WizardState>()(
         
         const state = get();
         
-        // Don't auto-save if on keywords step or no meaningful data
-        if (state.currentStep === 'keywords' || state.selectedKeywords.length === 0) {
+        // Don't auto-save unless we've reached Step 4
+        if (!state.hasReachedStep4 || state.selectedKeywords.length === 0) {
           return;
         }
         
@@ -523,6 +533,19 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setCurrentApplicationId: (id) => set({ currentApplicationId: id }),
+      
+      markReachedStep4: () => {
+        const { hasReachedStep4 } = get();
+        if (!hasReachedStep4) {
+          set({ hasReachedStep4: true });
+          // Trigger initial save when reaching Step 4
+          setTimeout(() => {
+            const state = get();
+            const newSignature = generateSaveSignature(state);
+            set({ saveSignature: newSignature });
+          }, 100);
+        }
+      },
       
       markVacancyAsApplied: (vacancyId) => {
         const { appliedVacancyIds } = get();
@@ -713,18 +736,67 @@ export const useWizardStore = create<WizardState>()(
         
         set({
           currentStep: 'keywords',
+          hasReachedStep4: false,
           isTransitioning: false,
           transitionFrom: null,
           transitionTo: null,
           userInput: '',
           aiSuggestions: [],
           selectedKeywords: [],
+          selectedKeywordsCanonical: [],
           filters: { ...defaultFilters }, // Create a fresh copy
           searchResults: [],
           currentVacancyIndex: 0,
           totalFound: 0,
           appliedVacancyIds: [],
           currentApplicationId: null,
+          isSaving: false,
+          lastSavedAt: null,
+          lastSearchKeywords: [],
+          lastSearchFilters: { ...defaultFilters },
+          searchNeedsRefresh: false,
+          currentSearchSignature: '',
+          lastLoadedSignature: '',
+          saveSignature: ''
+        });
+      },
+      
+      // Reset search - clear all search state but keep user settings
+      resetSearch: () => {
+        // Clear search-specific localStorage
+        try {
+          localStorage.removeItem('hh-search-cache');
+          localStorage.removeItem('vacancy-cache');
+          // Keep global settings like titleFirstSearch, useExactPhrases etc.
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+        
+        // Reset external refs
+        inFlightRef = false;
+        lastSavedHashRef = '';
+        if (debounceTimeoutRef) {
+          clearTimeout(debounceTimeoutRef);
+          debounceTimeoutRef = null;
+        }
+        
+        set({
+          currentStep: 'keywords',
+          hasReachedStep4: false,
+          isTransitioning: false,
+          transitionFrom: null,
+          transitionTo: null,
+          userInput: '',
+          aiSuggestions: [],
+          selectedKeywords: [],
+          selectedKeywordsCanonical: [],
+          searchResults: [],
+          currentVacancyIndex: 0,
+          totalFound: 0,
+          appliedVacancyIds: [],
+          currentApplicationId: null,
+          isSaving: false,
+          lastSavedAt: null,
           lastSearchKeywords: [],
           lastSearchFilters: { ...defaultFilters },
           searchNeedsRefresh: false,

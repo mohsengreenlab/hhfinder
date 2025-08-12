@@ -11,7 +11,11 @@ interface HomeProps {
 }
 
 export default function Home({ onBackToDashboard }: HomeProps = {}) {
-  const { currentStep, isTransitioning, transitionFrom, transitionTo, completeTransition } = useWizardStore();
+  const { currentStep, isTransitioning, transitionFrom, transitionTo, completeTransition, setStep } = useWizardStore();
+
+  const handleNavigateToStart = () => {
+    setStep('keywords');
+  };
 
   // Show transition loader during transitions
   if (isTransitioning && transitionFrom && transitionTo) {
@@ -44,6 +48,7 @@ export default function Home({ onBackToDashboard }: HomeProps = {}) {
     <div className="min-h-screen bg-slate-50">
       <WizardHeader 
         onHomeClick={onBackToDashboard || (() => {})} 
+        onNavigateToStart={handleNavigateToStart}
         currentStep={currentStep}
       />
       <div className="pt-16 min-h-screen flex items-center justify-center p-4">

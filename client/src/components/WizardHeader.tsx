@@ -1,14 +1,16 @@
 import { Home, Save, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWizardStore } from '@/state/wizard';
+import NewSearchButton from '@/components/NewSearchButton';
 
 interface WizardHeaderProps {
   onHomeClick: () => void;
+  onNavigateToStart?: () => void;
   currentStep?: string;
 }
 
-export default function WizardHeader({ onHomeClick, currentStep }: WizardHeaderProps) {
-  const { isSaving, lastSavedAt, currentApplicationId } = useWizardStore();
+export default function WizardHeader({ onHomeClick, onNavigateToStart, currentStep }: WizardHeaderProps) {
+  const { isSaving, lastSavedAt, currentApplicationId, hasReachedStep4 } = useWizardStore();
   
   const getStepTitle = (step?: string) => {
     switch (step) {
@@ -54,24 +56,34 @@ export default function WizardHeader({ onHomeClick, currentStep }: WizardHeaderP
           </div>
         </div>
         
-        {/* Auto-save indicator */}
-        {currentApplicationId && (
+        <div className="flex items-center gap-3">
+          {/* New Search button for Steps 2, 3, and 4 */}
+          {currentStep && ['confirm', 'filters', 'results'].includes(currentStep) && (
+            <NewSearchButton 
+              currentStep={currentStep} 
+              onNavigateToStart={onNavigateToStart}
+            />
+          )}
+          
+          {/* Auto-save indicator */}
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            {isSaving ? (
+            {!hasReachedStep4 ? (
+              <span>Not saved yet</span>
+            ) : currentApplicationId && isSaving ? (
               <>
                 <Save className="h-4 w-4 animate-pulse text-blue-500" />
                 <span>Saving...</span>
               </>
-            ) : lastSavedAt ? (
+            ) : currentApplicationId && lastSavedAt ? (
               <>
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 <span>{formatLastSaved(lastSavedAt)}</span>
               </>
-            ) : (
+            ) : hasReachedStep4 ? (
               <span>Auto-save enabled</span>
-            )}
+            ) : null}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

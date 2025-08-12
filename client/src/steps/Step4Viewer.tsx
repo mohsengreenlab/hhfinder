@@ -85,7 +85,8 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     isSearchSignatureChanged,
     currentSearchSignature,
     lastLoadedSignature,
-    currentApplicationId
+    currentApplicationId,
+    markReachedStep4
   } = useWizardStore();
   
   const { toast } = useToast();
@@ -370,8 +371,11 @@ ${jobInfo.description}`;
     }
   }, [selectedKeywords, filters, currentApplicationId]); // Removed dependencies that change as a result of this effect
 
-  // Check for changes when entering Step 4 and clear results if needed
+  // Mark reaching Step 4 on mount and check for changes
   useEffect(() => {
+    // Mark that we've reached Step 4 (enables auto-save)
+    markReachedStep4();
+    
     if (!ENABLE_STEP4_SIGNATURE_EFFECT) return;
     
     const needsRefresh = checkSearchNeedsRefresh();
@@ -385,7 +389,7 @@ ${jobInfo.description}`;
       setCurrentPage(0);
       queryClient.invalidateQueries({ queryKey: ['/api/vacancies/tiered'] });
     }
-  }, [searchNeedsRefresh]);
+  }, [searchNeedsRefresh, markReachedStep4]);
 
   // Reset pagination when filters change (guarded)
   useEffect(() => {
@@ -565,8 +569,7 @@ ${jobInfo.description}`;
           tier: 'Title',
           items: titleData.items || [],
           count: titleData.found || 0,
-          url: titleUrl,
-          debugEcho: titleData.debugEcho
+          url: titleUrl
         });
       }
 
@@ -608,8 +611,7 @@ ${jobInfo.description}`;
           tier: 'Description',
           items: descData.items || [],
           count: descData.found || 0,
-          url: descUrl,
-          debugEcho: descData.debugEcho
+          url: descUrl
         });
       }
 
@@ -658,8 +660,7 @@ ${jobInfo.description}`;
           tier: 'Skills',
           items: skillsData.items || [],
           count: skillsData.found || 0,
-          url: skillsUrl,
-          debugEcho: skillsData.debugEcho
+          url: skillsUrl
         });
       }
 
