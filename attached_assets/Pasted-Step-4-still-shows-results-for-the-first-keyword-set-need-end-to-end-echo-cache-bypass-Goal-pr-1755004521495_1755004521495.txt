@@ -1,0 +1,76 @@
+Step 4 still shows results for the first keyword set — need end-to-end echo + cache bypass
+
+Goal: prove whether the server is using the new keywords/filters or falling back to old (DB/session/cached) values.
+Please do
+
+    Bypass all caches for search (temp)
+
+        Add a flag BYPASS_SEARCH_CACHE=true (server).
+
+        When true: disable any LRU/memoization/request-coalescing for the /api/search (tiered) call.
+
+    Echo back what the server really used
+
+        In the search response, include:
+
+    {
+      "clientSignature": "<from request header/body>",
+      "serverSignature": "<computed on server from params actually used>",
+      "resolvedKeywords": ["..."],        // exact phrases used per tier
+      "resolvedFilters": { ... },         // area, experience, toggles, excludes
+      "tiers": {
+        "title": { "url": "...", "text": "...", "search_field": "name", "count": 123 },
+        "description": { "url": "...", "text": "...", "search_field": "description", "count": 45 },
+        "skills": { "url": "...", "text": "...", "search_field": "company_name", "count": 12, "clientSkillMatches": 7 }
+      }
+    }
+
+    Also log these server-side with a correlation id header: X-Search-Run-Id = clientSignature.
+
+Client: pass the signature + stop reading store in queryFn
+
+    The Step 4 useQuery’s queryFn must derive all params from the searchSignature (from the queryKey), not from store.
+
+    Add X-Search-Run-Id: searchSignature header.
+
+Clear old cache on signature change (client)
+
+    Before issuing the new query:
+
+        queryClient.removeQueries({ queryKey: ['vacancies', applicationId], exact: false });
+
+        Use placeholderData: undefined so nothing old leaks in.
+
+    Two quick requests to prove the fix (paste TEXT, not screenshots)
+
+        Case A: Step 2 = "react developer"; Case B: Step 2 = "python developer".
+
+        For each, paste:
+
+            clientSignature and serverSignature
+
+            resolvedKeywords (should differ between A and B)
+
+            Title-tier text and first 2 vacancy titles
+
+        If A/B look the same, the server is ignoring request keywords; fix the controller to read params from the request, not DB/session.
+
+    Check for these common pitfalls (fix if found)
+
+        Server builds search from application DB record instead of request body.
+
+        Server applies a fallback defaults block that overwrites incoming keywords.
+
+        Server-side cache key doesn’t include keywords/signature (only applicationId).
+
+        Client sends keywords in body, but server expects query params (or vice-versa).
+
+        URL encoding removes quotes; ensure title tier receives quoted phrases.
+
+Acceptance
+
+    For A vs B, resolvedKeywords and tier URLs differ; Step 4 shows different totals and top results immediately (no exit/resume needed).
+
+    clientSignature === serverSignature.
+
+    With BYPASS_SEARCH_CACHE=true, we never see stale values; then you can re-enable cache keyed by serverSignature.

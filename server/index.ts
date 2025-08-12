@@ -3,6 +3,9 @@ import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Debug flags
+const BYPASS_SEARCH_CACHE = process.env.BYPASS_SEARCH_CACHE === 'true' || true; // Temporary bypass
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

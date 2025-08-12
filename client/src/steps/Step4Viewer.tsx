@@ -541,14 +541,26 @@ ${jobInfo.description}`;
         console.log('🔍 Tier A (Title) URL:', titleUrl);
       }
       
-      const titleResponse = await fetch(titleUrl);
+      const titleResponse = await fetch(titleUrl, {
+        headers: {
+          'X-Search-Run-Id': currentSearchSignature,
+          'X-Client-Signature': currentSearchSignature
+        }
+      });
       if (titleResponse.ok) {
         const titleData = await titleResponse.json();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Step4: Title tier echo - client: ${titleData.debugEcho?.clientSignature}, server: ${titleData.debugEcho?.serverSignature}`);
+          console.log(`Step4: Title tier keywords: ${titleData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
+        }
+        
         tierResults.push({
           tier: 'Title',
           items: titleData.items || [],
           count: titleData.found || 0,
-          url: titleUrl
+          url: titleUrl,
+          debugEcho: titleData.debugEcho
         });
       }
 
@@ -572,14 +584,26 @@ ${jobInfo.description}`;
         console.log('🔍 Tier B (Description) URL:', descUrl);
       }
 
-      const descResponse = await fetch(descUrl);
+      const descResponse = await fetch(descUrl, {
+        headers: {
+          'X-Search-Run-Id': currentSearchSignature,
+          'X-Client-Signature': currentSearchSignature
+        }
+      });
       if (descResponse.ok) {
         const descData = await descResponse.json();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Step4: Description tier echo - client: ${descData.debugEcho?.clientSignature}, server: ${descData.debugEcho?.serverSignature}`);
+          console.log(`Step4: Description tier keywords: ${descData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
+        }
+        
         tierResults.push({
           tier: 'Description',
           items: descData.items || [],
           count: descData.found || 0,
-          url: descUrl
+          url: descUrl,
+          debugEcho: descData.debugEcho
         });
       }
 
@@ -610,14 +634,26 @@ ${jobInfo.description}`;
         console.log('🔍 Tier C (Skills/Company) URL:', skillsUrl);
       }
 
-      const skillsResponse = await fetch(skillsUrl);
+      const skillsResponse = await fetch(skillsUrl, {
+        headers: {
+          'X-Search-Run-Id': currentSearchSignature,
+          'X-Client-Signature': currentSearchSignature
+        }
+      });
       if (skillsResponse.ok) {
         const skillsData = await skillsResponse.json();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Step4: Skills tier echo - client: ${skillsData.debugEcho?.clientSignature}, server: ${skillsData.debugEcho?.serverSignature}`);
+          console.log(`Step4: Skills tier keywords: ${skillsData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
+        }
+        
         tierResults.push({
           tier: 'Skills',
           items: skillsData.items || [],
           count: skillsData.found || 0,
-          url: skillsUrl
+          url: skillsUrl,
+          debugEcho: skillsData.debugEcho
         });
       }
 

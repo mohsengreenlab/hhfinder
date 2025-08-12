@@ -517,6 +517,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vacancies', requireAuth, async (req, res) => {
     const startTime = Date.now();
     
+    // Echo debugging - correlation ID from client
+    const searchRunId = req.headers['x-search-run-id'] as string || 'unknown';
+    const clientSignature = req.headers['x-client-signature'] as string || 'none';
+    
     try {
       const params = {
         text: req.query.text as string,
@@ -537,6 +541,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search_field: req.query.search_field as string[],
         label: req.query.label as string[]
       };
+      
+      // Generate server signature from actual params used
+      const serverSignature = `server_${params.text || 'notext'}_${params.search_field?.join('-') || 'nosf'}_${Date.now().toString(36)}`;
+      
+      // Extensive debugging
+      console.log(`🔍 [${searchRunId}] Server Search Debug:`);
+      console.log(`   Client Signature: ${clientSignature}`);
+      console.log(`   Server Signature: ${serverSignature}`);
+      console.log(`   Resolved Keywords: [${params.text || 'none'}]`);
+      console.log(`   Search Field: ${params.search_field?.join(',') || 'default'}`);
+      console.log(`   Full Params:`, JSON.stringify(params, null, 2));
 
       // Debug logging if enabled (check request query parameter)
       const debugMode = req.query.debug === 'true';
@@ -549,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { data, timing } = await hhClient.searchVacancies(params);
 
-      // Trim payload to essentials
+      // Trim payload to essentials + add echo data
       const trimmed = {
         items: data.items?.map((item: any) => ({
           id: item.id,
@@ -563,8 +578,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         found: data.found,
         pages: data.pages,
         page: data.page,
-        per_page: data.per_page
+        per_page: data.per_page,
+        // Echo debugging data
+        debugEcho: {
+          clientSignature,
+          serverSignature,
+          resolvedKeywords: [params.text].filter(Boolean),
+          resolvedFilters: {
+            area: params.area,
+            experience: params.experience,
+            searchField: params.search_field
+          },
+          searchRunId,
+          tier: params.search_field?.includes('name') ? 'title' : 
+                params.search_field?.includes('description') ? 'description' : 
+                params.search_field?.includes('company_name') ? 'skills' : 'unknown'
+        }
       };
+      
+      console.log(`🔍 [${searchRunId}] Server Response: ${trimmed.found} found, first: "${trimmed.items[0]?.name || 'none'}"`);
 
       res.locals.addTiming('upstream', timing.upstream);
       res.locals.addTiming('total', Date.now() - startTime);
