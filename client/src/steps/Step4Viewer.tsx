@@ -18,11 +18,13 @@ import { useWizardStore } from '@/state/wizard';
 import { 
   HHVacanciesResponse, 
   HHVacancyDetail, 
-  FilterMatchRequest,
-  FilterMatchResponse,
   CoverLetterRequest,
   CoverLetterResponse
 } from '@/types/api';
+import { 
+  FilterMatchRequest,
+  FilterMatchResponse
+} from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 import { ImprovedCoverLetterGenerator } from '@/components/ImprovedCoverLetterGenerator';
 
@@ -479,7 +481,7 @@ ${jobInfo.description}`;
         });
       }
 
-      // Tier C: Skills search (search_field=skills - fallback to company_name if skills not supported)
+      // Tier C: Skills search (with optional company_name fallback)
       const skillsParams = new URLSearchParams();
       Object.entries(baseParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -490,7 +492,14 @@ ${jobInfo.description}`;
           }
         }
       });
-      skillsParams.set('search_field', 'company_name'); // Using company_name as skills fallback
+      
+      // Use company_name fallback only if enabled
+      if (filters.useCompanyFallback) {
+        skillsParams.set('search_field', 'company_name'); // Fallback since HH.ru doesn't support skills directly
+      } else {
+        // Pure skills search without company bias - will rely entirely on client-side key_skills matching
+        skillsParams.set('search_field', 'name'); // Use name but rely on client-side skills detection
+      }
       skillsParams.set('page', '0');
       skillsParams.set('per_page', per_page.toString());
 
@@ -577,6 +586,41 @@ ${jobInfo.description}`;
             });
           }
         });
+      });
+      
+      // Apply deterministic stable sorting after scoring
+      // Tiebreaker order: score desc → posted_at desc → salary desc → employer id asc → vacancy id asc
+      mergedItems.sort((a, b) => {
+        // Primary: relevance score (desc)
+        if (a.relevanceScore !== b.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        
+        // Tiebreak 1: posted_at desc (newer first)
+        if (a.published_at && b.published_at) {
+          const dateA = new Date(a.published_at).getTime();
+          const dateB = new Date(b.published_at).getTime();
+          if (dateA !== dateB) {
+            return dateB - dateA;
+          }
+        }
+        
+        // Tiebreak 2: salary desc (higher first)
+        const salaryA = a.salary?.from || a.salary?.to || 0;
+        const salaryB = b.salary?.from || b.salary?.to || 0;
+        if (salaryA !== salaryB) {
+          return salaryB - salaryA;
+        }
+        
+        // Tiebreak 3: employer id asc (alphabetical)
+        const employerA = a.employer?.id || a.employer?.name || '';
+        const employerB = b.employer?.id || b.employer?.name || '';
+        if (employerA !== employerB) {
+          return employerA.localeCompare(employerB);
+        }
+        
+        // Tiebreak 4: vacancy id asc (stable)
+        return a.id.localeCompare(b.id);
       });
 
       // Debug logging

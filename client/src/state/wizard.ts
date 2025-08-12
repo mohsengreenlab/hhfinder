@@ -47,6 +47,7 @@ export interface WizardFilters {
   titleFirstSearch: boolean;
   useExactPhrases: boolean;
   useAndAcrossPhrases: boolean;
+  useCompanyFallback: boolean;
   enableDebugMode: boolean;
   excludeWords: string;
 }
@@ -161,6 +162,7 @@ const defaultFilters: WizardFilters = {
   titleFirstSearch: JSON.parse(localStorage.getItem('titleFirstSearch') ?? 'true'),
   useExactPhrases: JSON.parse(localStorage.getItem('useExactPhrases') ?? 'false'),
   useAndAcrossPhrases: JSON.parse(localStorage.getItem('useAndAcrossPhrases') ?? 'true'),
+  useCompanyFallback: JSON.parse(localStorage.getItem('useCompanyFallback') ?? 'true'),
   enableDebugMode: JSON.parse(localStorage.getItem('enableDebugMode') ?? 'false'),
   excludeWords: localStorage.getItem('excludeWords') ?? ''
 };

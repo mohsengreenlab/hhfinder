@@ -62,6 +62,14 @@ export interface FilterMatchRequest {
   // Education and work format filters
   educationLevel?: string;
   workFormats?: string[];
+  
+  // New search options
+  titleFirstSearch?: boolean;
+  useExactPhrases?: boolean;
+  useAndAcrossPhrases?: boolean;
+  useCompanyFallback?: boolean;
+  enableDebugMode?: boolean;
+  excludeWords?: string;
 }
 
 export interface FilterMatchResponse {

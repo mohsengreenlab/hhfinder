@@ -702,6 +702,24 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
               />
             </div>
             
+            {/* Skills tier company fallback toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="skills-company-fallback" className="text-sm font-medium text-slate-700">
+                  Use company_name fallback for Skills tier
+                </Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Search company names when looking for skills matches (recommended)
+                </p>
+              </div>
+              <Switch
+                id="skills-company-fallback"
+                checked={localFilters.useCompanyFallback !== false} // Default true
+                onCheckedChange={(checked) => handleLocalChange('useCompanyFallback', checked)}
+                data-testid="skills-company-fallback-switch"
+              />
+            </div>
+            
             {/* Debug mode toggle */}
             <div className="flex items-center justify-between">
               <div>
@@ -752,8 +770,12 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
         isOpen={showKeywordExpansion}
         onClose={() => setShowKeywordExpansion(false)}
         onApply={(expandedKeywords) => {
-          // Convert string keywords back to keyword objects
-          const keywordObjects = expandedKeywords.map(text => ({ text, verified: true }));
+          // Convert string keywords back to keyword objects with source
+          const keywordObjects = expandedKeywords.map(text => ({ 
+            text, 
+            verified: true, 
+            source: 'ai' as const 
+          }));
           setSelectedKeywords(keywordObjects);
         }}
         originalKeywords={selectedKeywords.map(k => k.text)}
