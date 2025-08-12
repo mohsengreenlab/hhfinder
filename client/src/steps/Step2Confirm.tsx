@@ -364,8 +364,14 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
             <Button
               type="button"
               onClick={() => {
-                // Commit keywords before navigation
-                commitKeywords();
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Step2: Continue button clicked, committing keywords and navigating`);
+                }
+                // Atomic commit + signature update before navigation
+                const committed = commitKeywords();
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Step2: Committed ${Array.isArray(committed) ? committed.map((k: any) => k.text).join(',') : 'none'}, navigating to Step 3`);
+                }
                 goNext();
               }}
               disabled={!canContinue}

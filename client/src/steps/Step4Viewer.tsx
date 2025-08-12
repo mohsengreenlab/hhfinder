@@ -400,12 +400,30 @@ ${jobInfo.description}`;
     }
   }, [hhFilters]);
 
+  // Clear old cache on signature change to prevent stale data
+  useEffect(() => {
+    if (currentSearchSignature && currentSearchSignature !== lastLoadedSignature) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Step4: Signature changed, clearing cache. Old=${lastLoadedSignature}, New=${currentSearchSignature}`);
+      }
+      queryClient.removeQueries({ 
+        queryKey: ['/api/vacancies', currentApplicationId], 
+        exact: false 
+      });
+    }
+  }, [currentSearchSignature, lastLoadedSignature, queryClient, currentApplicationId]);
+
   // Tiered search: Title → Description → Skills with merged results
   const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery({
-    queryKey: ['/api/vacancies/tiered', currentApplicationId, sigRef.current, currentPage],
+    queryKey: ['/api/vacancies/tiered', currentApplicationId, currentSearchSignature, currentPage],
     queryFn: async () => {
       effectRuns.querySuccess++;
       console.log(`Query execution #${effectRuns.querySuccess}`);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Step4: Query starting with signature=${currentSearchSignature}`);
+        console.log(`Step4: Using canonical keywords=${selectedKeywordsCanonical.map(k => k.text).join(',')}`);
+      }
       
       if (!ENABLE_STEP4_QUERY) {
         return { items: [], found: 0, pages: 0, page: 0, per_page: 0 };
@@ -722,6 +740,13 @@ ${jobInfo.description}`;
       // Apply pagination to merged results
       const paginatedItems = mergedItems.slice(startIndex, startIndex + 50);
       const totalFound = mergedItems.length;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Step4: Query complete - found ${totalFound} total, returning ${paginatedItems.length} items`);
+        if (paginatedItems.length > 0) {
+          console.log(`Step4: First vacancy: "${paginatedItems[0].name}"`);
+        }
+      }
 
       return {
         items: paginatedItems,
@@ -741,8 +766,8 @@ ${jobInfo.description}`;
     },
     enabled: !!hhFilters && !!currentSearchSignature,
     staleTime: isSearchSignatureChanged() ? 0 : 5 * 60 * 1000, // Force refresh if signature changed
-    refetchOnMount: isSearchSignatureChanged() ? 'always' : true,
-    placeholderData: isSearchSignatureChanged() ? undefined : (previousData) => previousData // Don't keep old data when signature changes
+    placeholderData: isSearchSignatureChanged() ? undefined : (previousData) => previousData, // Don't keep old data when signature changes
+    refetchOnMount: isSearchSignatureChanged() ? 'always' : true
   });
 
   // Update store when search results change (append for pagination)

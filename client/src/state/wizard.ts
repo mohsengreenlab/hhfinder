@@ -326,16 +326,25 @@ export const useWizardStore = create<WizardState>()(
           .sort((a, b) => a.text.toLowerCase().localeCompare(b.text.toLowerCase()));
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`Store: commitKeywords(${normalizedKeywords.length} canonical keywords)`);
+          console.log(`Store: commitKeywords BEFORE: pendingKeywords=${selectedKeywords.map(k => k.text).join(',')}`);
+          console.log(`Store: commitKeywords AFTER: selectedKeywordsCanonical=${normalizedKeywords.map(k => k.text).join(',')}`);
         }
+        
+        // Atomic commit + signature update
+        const state = get();
+        const newSignature = state.generateSearchSignature();
         
         set({ 
           selectedKeywordsCanonical: normalizedKeywords,
-          currentVacancyIndex: 0 // Reset index when keywords change
+          currentVacancyIndex: 0, // Reset index when keywords change
+          currentSearchSignature: newSignature,
+          lastLoadedSignature: '', // Force refresh
+          searchNeedsRefresh: true
         });
         
-        // Update search signature after committing
-        const newSignature = get().updateSearchSignature();
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Store: commitKeywords searchSignature=${newSignature}`);
+        }
         
         return normalizedKeywords;
       },

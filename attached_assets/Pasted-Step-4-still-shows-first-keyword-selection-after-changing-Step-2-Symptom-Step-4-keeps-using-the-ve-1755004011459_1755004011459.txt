@@ -1,0 +1,60 @@
+Step 4 still shows first keyword selection after changing Step 2
+
+Symptom: Step 4 keeps using the very first keyword selection unless I exit and resume.
+Please do (tight plan)
+
+    Commit before navigating (all exit paths from Step 2)
+
+        Ensure every way to leave Step 2 calls the same function:
+
+            commitKeywords(normalizeAndSort(...)) → updateSearchSignature() → then navigate.
+
+        Cover all paths: Step 2 “Continue” button, header Next, Enter key, any programmatic router.push('/step-3').
+
+        Make this a single Zustand set so commit + signature update happen atomically (no debounce here).
+
+    Sync signature, not debounced
+
+        The Step 2 “Continue” flow must update searchSignature synchronously (no debounce/throttle).
+
+        Keep debouncing only for typing changes, not for Continue / navigation.
+
+    Step 4 query must be keyed & fed only by the signature
+
+        useQuery key: ['vacancies', applicationId, searchSignature] (no inline objects).
+
+        The queryFn must not read store fields directly (which can be stale); instead, build the server request from the signature payload passed via the key or derive everything from a pure function of the signature.
+
+        Temporarily set placeholderData: undefined (v5) to avoid showing old data from the previous signature.
+
+    No old cache reuse on signature change
+
+        On Step 4 mount / signature change, call:
+
+        queryClient.removeQueries({ queryKey: ['vacancies', applicationId], exact: false });
+
+        before issuing the new query, so nothing from the previous signature can be reused.
+
+    Debug snapshot (please paste as TEXT)
+
+        Just before leaving Step 2 (on click/press of Continue):
+        pendingKeywords, selectedKeywordsCanonical (after commit), searchSignature
+
+        Immediately after Step 4 mounts (before first render of results):
+        searchSignature, queryKey, and the actual HH request text/search_field.
+
+        After results render: first vacancy title and merged totals.
+
+    Check for a second Step 2 exit path
+
+        If Step 2 also has a “Confirm keywords” component or the wizard header “Next”, ensure both call commitKeywords + updateSearchSignature — no alternate path should navigate without committing.
+
+Acceptance
+
+    Change keywords on Step 2 → Step 3 → Step 4 shows new totals and different top vacancy on the first render.
+
+    searchSignature printed before navigation equals the one Step 4 uses in the query key.
+
+    No placeholder carry-over; no need to exit/resume to see updated results.
+
+If the signature matches but the HH request still uses the old keywords, your queryFn is reading store state (stale closure). In that case: rewrite the queryFn to derive its params only from the queryKey/signature argument. Send me the useQuery block if you want me to point to the exact line.
