@@ -263,7 +263,12 @@ ${jobInfo.description}`;
         
         // Education and work format filters
         educationLevel: filters.educationLevel,
-        workFormats: filters.workFormats
+        workFormats: filters.workFormats,
+        
+        // New search options
+        titleFirstSearch: filters.titleFirstSearch,
+        useExactPhrases: filters.useExactPhrases,
+        enableDebugMode: filters.enableDebugMode
       };
 
       const response = await fetch('/api/filters/match', {
@@ -318,7 +323,28 @@ ${jobInfo.description}`;
       params.set('page', currentPage.toString());
       params.set('per_page', '100');
 
-      const response = await fetch(`/api/vacancies?${params.toString()}`);
+      // Add debug parameter if enabled
+      if (filters.enableDebugMode) {
+        params.set('debug', 'true');
+      }
+      
+      const finalUrl = `/api/vacancies?${params.toString()}`;
+      
+      // Debug logging if enabled
+      if (filters.enableDebugMode) {
+        console.log('🔍 HH.ru Search Debug Info:');
+        console.log('Final API URL:', finalUrl);
+        console.log('Search Parameters:', Object.fromEntries(params));
+        console.log('Title-first search:', filters.titleFirstSearch ? 'ENABLED (search_field=name)' : 'DISABLED (all fields)');
+        console.log('Exact phrases:', filters.useExactPhrases ? 'ENABLED (keywords in quotes)' : 'DISABLED (plain text)');
+        console.log('Keywords:', selectedKeywords.map(k => k.text).join(', '));
+        console.log('Enabled filters:', Object.entries(filters)
+          .filter(([key, value]) => key.startsWith('enable') && value)
+          .map(([key]) => key.replace('enable', '').replace('Filter', ''))
+          .join(', ') || 'None');
+      }
+
+      const response = await fetch(finalUrl);
       
       if (!response.ok) {
         throw new Error('Failed to search vacancies');

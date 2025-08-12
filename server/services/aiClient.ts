@@ -90,9 +90,13 @@ Sort order: ${JSON.stringify(dictionaries.vacancy_search_order)}
 
 The user has selected these job keywords: ${answers.selectedKeywords?.join(', ') || 'none'}
 
+Search options:
+- Title-first search: ${answers.titleFirstSearch ? 'enabled (use search_field: ["name"])' : 'disabled (search all fields)'}
+- Exact phrases: ${answers.useExactPhrases ? 'enabled (wrap keywords in quotes)' : 'disabled (plain text)'}
+
 Important: Only include filter parameters in the response if the corresponding enableXFilter flag is true. For example, only include "area" if enableLocationFilter is true.
 
-Return a JSON object with correct IDs from dictionaries. For the "text" field, combine the selected keywords into a search string:
+Return a JSON object with correct IDs from dictionaries. For the "text" field, combine the selected keywords considering the search options:
 {
   "text": "combine selected keywords into search string",
   "area": "1", // Area ID (1 = Moscow, 2 = SPb, etc.)
@@ -135,9 +139,24 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
     } catch (error) {
       console.error('Filter mapping failed:', error);
       // Return basic fallback with proper keyword combination, but only include enabled filters
+      const keywords = answers.selectedKeywords || [];
+      
+      // Apply exact phrases if enabled
+      let keywordText: string;
+      if (answers.useExactPhrases) {
+        keywordText = keywords.map((k: string) => `"${k}"`).join(' OR ');
+      } else {
+        keywordText = keywords.join(' OR ');
+      }
+      
       const fallback: any = {
-        text: answers.selectedKeywords?.join(' OR ') || ''
+        text: keywordText
       };
+      
+      // Add search_field=name if title-first search is enabled
+      if (answers.titleFirstSearch) {
+        fallback.search_field = ['name'];
+      }
       
       // Only include filters that are explicitly enabled
       if (answers.enableLocationFilter && answers.locationText) {

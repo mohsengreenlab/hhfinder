@@ -66,6 +66,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enable compression
   app.use(compression());
 
+  // Health check endpoint for Gemini API key
+  app.get('/api/health/gemini', (req, res) => {
+    const hasKey = !!process.env.GEMINI_API_KEY;
+    res.json({ available: hasKey });
+  });
+
   // Add Server-Timing headers
   app.use((req, res, next) => {
     res.locals.timings = [];
@@ -487,6 +493,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search_field: req.query.search_field as string[],
         label: req.query.label as string[]
       };
+
+      // Debug logging if enabled (check request query parameter)
+      const debugMode = req.query.debug === 'true';
+      if (debugMode) {
+        console.log('🔍 Backend HH.ru Search Debug:');
+        console.log('Final HH.ru parameters:', params);
+        console.log('Title-first active:', !!params.search_field?.includes('name'));
+        console.log('Exact phrases detected:', params.text?.includes('"'));
+      }
 
       const { data, timing } = await hhClient.searchVacancies(params);
 

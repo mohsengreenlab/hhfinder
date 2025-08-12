@@ -79,7 +79,12 @@ export const filterMatchRequestSchema = z.object({
   
   // Education and work format filters
   educationLevel: z.string().optional(),
-  workFormats: z.array(z.string()).optional()
+  workFormats: z.array(z.string()).optional(),
+  
+  // New search options
+  titleFirstSearch: z.boolean().optional(),
+  useExactPhrases: z.boolean().optional(),
+  enableDebugMode: z.boolean().optional()
 });
 
 export const filterMatchResponseSchema = z.object({

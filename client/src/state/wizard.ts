@@ -42,6 +42,11 @@ export interface WizardFilters {
   // Education and work format filters
   educationLevel: string;
   workFormats: string[];
+  
+  // New search options
+  titleFirstSearch: boolean;
+  useExactPhrases: boolean;
+  enableDebugMode: boolean;
 }
 
 export interface WizardState {
@@ -148,7 +153,12 @@ const defaultFilters: WizardFilters = {
   
   // Education and work format filters
   educationLevel: '',
-  workFormats: []
+  workFormats: [],
+  
+  // New search options - title-first ON by default for better relevance
+  titleFirstSearch: true,
+  useExactPhrases: true,
+  enableDebugMode: false
 };
 
 export const useWizardStore = create<WizardState>()(

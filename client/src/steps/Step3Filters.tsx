@@ -36,7 +36,11 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
     vacancyLabels: filters.vacancyLabels ?? [],
     employerName: filters.employerName ?? '',
     educationLevel: filters.educationLevel ?? '',
-    workFormats: filters.workFormats ?? []
+    workFormats: filters.workFormats ?? [],
+    // New search options with defaults
+    titleFirstSearch: filters.titleFirstSearch ?? true,
+    useExactPhrases: filters.useExactPhrases ?? true,
+    enableDebugMode: filters.enableDebugMode ?? false
   };
   
   // Local form state
@@ -636,6 +640,70 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Options */}
+        <div className="bg-slate-50 rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+            <Search className="mr-3 h-5 w-5 text-primary-600" />
+            Search Options
+          </h3>
+          
+          <div className="space-y-4">
+            {/* Title-first toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="title-first" className="text-sm font-medium text-slate-700">
+                  Title-first search
+                </Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Prioritize job title matches over description/skills (recommended)
+                </p>
+              </div>
+              <Switch
+                id="title-first"
+                checked={localFilters.titleFirstSearch}
+                onCheckedChange={(checked) => handleLocalChange('titleFirstSearch', checked)}
+                data-testid="title-first-switch"
+              />
+            </div>
+            
+            {/* Exact phrases toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="exact-phrases" className="text-sm font-medium text-slate-700">
+                  Use exact phrases
+                </Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Search for exact keyword phrases instead of individual words
+                </p>
+              </div>
+              <Switch
+                id="exact-phrases"
+                checked={localFilters.useExactPhrases}
+                onCheckedChange={(checked) => handleLocalChange('useExactPhrases', checked)}
+                data-testid="exact-phrases-switch"
+              />
+            </div>
+            
+            {/* Debug mode toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="debug-mode" className="text-sm font-medium text-slate-700">
+                  Debug mode
+                </Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Show technical details about search requests (for developers)
+                </p>
+              </div>
+              <Switch
+                id="debug-mode"
+                checked={localFilters.enableDebugMode}
+                onCheckedChange={(checked) => handleLocalChange('enableDebugMode', checked)}
+                data-testid="debug-mode-switch"
+              />
             </div>
           </div>
         </div>
