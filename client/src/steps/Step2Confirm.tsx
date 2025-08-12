@@ -33,6 +33,7 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
     setFilters,
     addCustomKeyword,
     removeKeyword,
+    updateSearchSignature,
     goBack, 
     goNext 
   } = useWizardStore();
@@ -60,9 +61,11 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
     if (checked && selectedKeywords.length < 3) {
       const newKeywords = [...selectedKeywords, { text: suggestion.text, source: suggestion.source }];
       setSelectedKeywords(newKeywords);
+      setTimeout(() => updateSearchSignature(), 0);
     } else if (!checked) {
       const newKeywords = selectedKeywords.filter(k => k.text !== suggestion.text);
       setSelectedKeywords(newKeywords);
+      setTimeout(() => updateSearchSignature(), 0);
     }
   };
 
@@ -70,6 +73,7 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
     if (customKeyword.trim() && selectedKeywords.length < 3) {
       addCustomKeyword(customKeyword.trim());
       setCustomKeyword('');
+      setTimeout(() => updateSearchSignature(), 0);
     }
   };
 

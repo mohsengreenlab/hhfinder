@@ -87,6 +87,10 @@ export interface WizardState {
   lastSearchFilters: WizardFilters;
   searchNeedsRefresh: boolean;
   
+  // Search signature for cache invalidation
+  currentSearchSignature: string;
+  lastLoadedSignature: string;
+  
   // Actions
   setStep: (step: WizardStep) => void;
   setCurrentStep: (step: number) => void;
@@ -110,6 +114,11 @@ export interface WizardState {
   markSearchCompleted: () => void;
   checkSearchNeedsRefresh: () => boolean;
   jumpToVacancy: (targetIndex: number) => boolean;
+  
+  // Search signature management
+  generateSearchSignature: () => string;
+  updateSearchSignature: () => void;
+  isSearchSignatureChanged: () => boolean;
   
   // Transition actions
   startTransition: (from: WizardStep, to: WizardStep) => void;
@@ -193,6 +202,10 @@ export const useWizardStore = create<WizardState>()(
       lastSearchKeywords: [],
       lastSearchFilters: defaultFilters,
       searchNeedsRefresh: false,
+      
+      // Search signature tracking
+      currentSearchSignature: '',
+      lastLoadedSignature: '',
 
       // Actions
       setStep: (step) => set({ currentStep: step }),
@@ -458,6 +471,81 @@ export const useWizardStore = create<WizardState>()(
         return false;
       },
       
+      // Generate search signature from current state
+      generateSearchSignature: () => {
+        const { selectedKeywords, filters } = get();
+        
+        // Create a normalized object with all search-affecting parameters
+        const searchParams = {
+          keywords: selectedKeywords
+            .map(k => k.text.toLowerCase().trim())
+            .sort(), // Sort for consistent ordering
+          excludeWords: filters.excludeWords?.toLowerCase().trim().split(/\s+/).filter(Boolean).sort() || [],
+          useExactPhrases: filters.useExactPhrases,
+          useAndAcrossPhrases: filters.useAndAcrossPhrases,
+          useCompanyFallback: filters.useCompanyFallback,
+          titleFirstSearch: filters.titleFirstSearch,
+          
+          // All location filters
+          locationText: filters.locationText?.toLowerCase().trim() || '',
+          remoteOnly: filters.remoteOnly,
+          hybridOk: filters.hybridOk,
+          enableLocationFilter: filters.enableLocationFilter,
+          
+          // All other filters
+          experience: filters.experience,
+          enableExperienceFilter: filters.enableExperienceFilter,
+          employmentTypes: filters.employmentTypes?.slice().sort() || [],
+          enableEmploymentFilter: filters.enableEmploymentFilter,
+          scheduleTypes: filters.scheduleTypes?.slice().sort() || [],
+          enableScheduleFilter: filters.enableScheduleFilter,
+          salary: filters.salary,
+          currency: filters.currency,
+          onlyWithSalary: filters.onlyWithSalary,
+          enableSalaryFilter: filters.enableSalaryFilter,
+          period: filters.period,
+          orderBy: filters.orderBy,
+          
+          metroStation: filters.metroStation,
+          enableMetroFilter: filters.enableMetroFilter,
+          searchFields: filters.searchFields?.slice().sort() || [],
+          vacancyLabels: filters.vacancyLabels?.slice().sort() || [],
+          enableLabelFilter: filters.enableLabelFilter,
+          employerName: filters.employerName?.toLowerCase().trim() || '',
+          
+          educationLevel: filters.educationLevel,
+          enableEducationFilter: filters.enableEducationFilter,
+          workFormats: filters.workFormats?.slice().sort() || [],
+          enableWorkFormatFilter: filters.enableWorkFormatFilter
+        };
+        
+        // Create a stable hash from the normalized parameters
+        const jsonString = JSON.stringify(searchParams);
+        
+        // Simple hash function for client-side use
+        let hash = 0;
+        for (let i = 0; i < jsonString.length; i++) {
+          const char = jsonString.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        return `search_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`;
+      },
+      
+      // Update the current search signature
+      updateSearchSignature: () => {
+        const newSignature = get().generateSearchSignature();
+        set({ currentSearchSignature: newSignature });
+        return newSignature;
+      },
+      
+      // Check if search signature has changed since last load
+      isSearchSignatureChanged: () => {
+        const { currentSearchSignature, lastLoadedSignature } = get();
+        return currentSearchSignature !== lastLoadedSignature;
+      },
+      
       // Reset - completely clear all state for a fresh start
       reset: () => {
         // Clear any existing search cache/context in localStorage
@@ -486,7 +574,9 @@ export const useWizardStore = create<WizardState>()(
           lastSavedAt: null,
           lastSearchKeywords: [],
           lastSearchFilters: { ...defaultFilters },
-          searchNeedsRefresh: false
+          searchNeedsRefresh: false,
+          currentSearchSignature: '',
+          lastLoadedSignature: ''
         });
       }
     }),

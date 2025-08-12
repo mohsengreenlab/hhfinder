@@ -18,7 +18,7 @@ interface Step3FiltersProps {
 }
 
 export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
-  const { filters, setFilters, goBack, goNext, selectedKeywords, setSelectedKeywords } = useWizardStore();
+  const { filters, setFilters, updateSearchSignature, goBack, goNext, selectedKeywords, setSelectedKeywords } = useWizardStore();
   const [showKeywordExpansion, setShowKeywordExpansion] = useState(false);
   
   // Ensure all new fields exist (migration from old localStorage)
@@ -80,7 +80,11 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
   const areaOptions = areas ? flattenAreas(areas) : [];
 
   const handleLocalChange = (key: keyof typeof filters, value: any) => {
-    setLocalFilters(prev => ({ ...prev, [key]: value }));
+    const newFilters = { ...localFilters, [key]: value };
+    setLocalFilters(newFilters);
+    setFilters(newFilters);
+    // Update search signature when filters change (debounced)
+    setTimeout(() => updateSearchSignature(), 100);
   };
 
   const handleSubmit = () => {

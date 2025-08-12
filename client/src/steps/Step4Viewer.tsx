@@ -56,7 +56,13 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     markSearchCompleted,
     checkSearchNeedsRefresh,
     jumpToVacancy,
-    goBack 
+    goBack,
+    generateSearchSignature,
+    updateSearchSignature,
+    isSearchSignatureChanged,
+    currentSearchSignature,
+    lastLoadedSignature,
+    currentApplicationId
   } = useWizardStore();
   
   const { toast } = useToast();
@@ -290,6 +296,38 @@ ${jobInfo.description}`;
     enabled: selectedKeywords.length > 0
   });
 
+  // Generate and update search signature on mount and when dependencies change
+  useEffect(() => {
+    updateSearchSignature();
+    
+    // If signature changed, clear old cache entries and reset pagination
+    if (currentSearchSignature && currentSearchSignature !== lastLoadedSignature) {
+      // Clear old cache entries for this application
+      queryClient.removeQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === '/api/vacancies/tiered' && 
+                 (query.queryKey[2] !== currentSearchSignature || query.queryKey[1] !== currentApplicationId);
+        }
+      });
+      
+      // Reset pagination and results when signature changes
+      setCurrentPage(0);
+      setCurrentVacancyIndex(0);
+      setSearchResults([], 0);
+      
+      // Update the loaded signature
+      useWizardStore.setState({ lastLoadedSignature: currentSearchSignature });
+      
+      if (filters.enableDebugMode) {
+        console.log('🔄 Search signature changed:', {
+          oldSignature: lastLoadedSignature,
+          newSignature: currentSearchSignature,
+          clearedCache: true
+        });
+      }
+    }
+  }, [selectedKeywords, filters, currentApplicationId, updateSearchSignature, queryClient, currentSearchSignature, lastLoadedSignature, setCurrentVacancyIndex, setSearchResults]);
+
   // Check for changes when entering Step 4 and clear results if needed
   useEffect(() => {
     const needsRefresh = checkSearchNeedsRefresh();
@@ -309,22 +347,8 @@ ${jobInfo.description}`;
   }, [hhFilters, setCurrentVacancyIndex]);
 
   // Tiered search: Title → Description → Skills with merged results
-  const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery<{
-    items: any[];
-    found: number;
-    pages: number;
-    page: number;
-    per_page: number;
-    tierInfo?: {
-      titleCount: number;
-      descriptionCount: number;
-      skillsCount: number;
-      totalAfterDedup: number;
-      excludedCount: number;
-      usedFallback: boolean;
-    };
-  }>({
-    queryKey: ['/api/vacancies/tiered', hhFilters, currentPage],
+  const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery({
+    queryKey: ['/api/vacancies/tiered', currentApplicationId, currentSearchSignature, currentPage],
     queryFn: async () => {
       if (!hhFilters) return { items: [], found: 0, pages: 0, page: 0, per_page: 0 };
 
@@ -655,8 +679,10 @@ ${jobInfo.description}`;
         }
       };
     },
-    enabled: !!hhFilters,
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    enabled: !!hhFilters && !!currentSearchSignature,
+    staleTime: isSearchSignatureChanged() ? 0 : 5 * 60 * 1000, // Force refresh if signature changed
+    refetchOnMount: isSearchSignatureChanged() ? 'always' : true,
+    placeholderData: isSearchSignatureChanged() ? undefined : (previousData) => previousData // Don't keep old data when signature changes
   });
 
   // Update store when search results change (append for pagination)
@@ -1137,7 +1163,7 @@ ${jobInfo.description}`;
               </div>
 
               {/* Enhanced Debug Info Panel (when debug mode is enabled) */}
-              {filters.enableDebugMode && vacanciesData?.tierInfo && (
+              {filters.enableDebugMode && vacanciesData && (vacanciesData as any).tierInfo && (
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm border-2 border-dashed border-gray-300">
                   <div className="font-bold text-gray-800 mb-3">🔍 Tiered Search Debug Panel</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1152,10 +1178,10 @@ ${jobInfo.description}`;
                     <div>
                       <div className="font-medium text-gray-700 mb-2">Tier Results:</div>
                       <div className="space-y-1 text-gray-600 text-xs">
-                        <div>🎯 Title: {vacanciesData.tierInfo.titleCount} found</div>
-                        <div>📄 Description: {vacanciesData.tierInfo.descriptionCount} found</div>
-                        <div>🛠️ Skills: {vacanciesData.tierInfo.skillsCount} found</div>
-                        <div className="font-medium pt-1">📊 Total after dedup: {vacanciesData.tierInfo.totalAfterDedup}</div>
+                        <div>🎯 Title: {(vacanciesData as any).tierInfo.titleCount} found</div>
+                        <div>📄 Description: {(vacanciesData as any).tierInfo.descriptionCount} found</div>
+                        <div>🛠️ Skills: {(vacanciesData as any).tierInfo.skillsCount} found</div>
+                        <div className="font-medium pt-1">📊 Total after dedup: {(vacanciesData as any).tierInfo.totalAfterDedup}</div>
                       </div>
                     </div>
                   </div>
@@ -1173,6 +1199,15 @@ ${jobInfo.description}`;
                           )}
                         </span>
                       )}
+                    </div>
+                    
+                    {/* Search signature debug info */}
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="text-xs text-gray-600">
+                        <div>Search signature: <span className="text-blue-600 font-mono">{currentSearchSignature || 'not generated'}</span></div>
+                        <div>Last loaded: <span className="text-green-600 font-mono">{lastLoadedSignature || 'none'}</span></div>
+                        <div>Signature changed: <span className={isSearchSignatureChanged() ? "text-red-600 font-bold" : "text-green-600"}>{isSearchSignatureChanged() ? 'YES' : 'NO'}</span></div>
+                      </div>
                     </div>
                   </div>
                 </div>

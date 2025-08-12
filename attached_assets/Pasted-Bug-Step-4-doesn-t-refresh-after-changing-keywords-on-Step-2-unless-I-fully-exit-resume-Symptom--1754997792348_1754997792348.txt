@@ -1,0 +1,60 @@
+Bug: Step 4 doesn’t refresh after changing keywords on Step 2 (unless I fully exit/resume)
+
+Symptom (easy repro):
+
+    On Step 4, go back → Step 3 → back → Step 2.
+
+    Change selected keywords.
+
+    Proceed to Step 3 → Step 4.
+
+    Problem: Step 4 still shows the old results.
+
+    If I exit and reopen from “My Applications,” results are updated (so the saved state is fine).
+
+Likely cause:
+Step 4’s data fetch (React Query/Zustand cache) isn’t keyed/invalidated with the current search inputs. The query key (or internal cache id) probably misses the selected keywords (and maybe other toggles), so navigation doesn’t trigger a re-fetch, while a cold reopen does.
+
+Please fix (simple plan):
+
+    Introduce a “search signature” (hash/fingerprint) that represents everything affecting results:
+
+        selected keywords (normalized), exclude terms, exact-phrase/AND toggles, title-first, skills fallback, AND→OR threshold, region, all Step 3 filters, period/order, etc.
+
+        use a stable JSON → hash (sorted keys, lowercased/trimmed arrays).
+
+    Use that signature in the query key for Step 4 (e.g., ['vacancies', applicationId, searchSignature]).
+
+        When the user changes anything on Step 2 or Step 3, recompute the signature.
+
+        This must reset pagination and trigger a fresh fetch.
+
+    On Step 4 mount / step transition:
+
+        If currentSignature !== lastLoadedSignature, then
+        a) clear local result list/progress for this application,
+        b) invalidate/remove queries for the old signature,
+        c) fetch with the new signature,
+        d) set index to the first valid item.
+
+    Ensure auto-save updates the signature too (so it persists and matches what loads on resume).
+
+    Show a tiny “Refreshing results…” state on Step 4 when signature changes so the user knows it’s reloading.
+
+    Debug panel addition (tiny): Show the active searchSignature, and the “lastLoadedSignature” so we can confirm they differ after a Step 2 change.
+
+Acceptance checks:
+
+    Change keywords on Step 2 → go forward → Step 4 shows new totals and new first vacancy immediately.
+
+    Pagination resets/clamps appropriately.
+
+    Exiting/resuming shows the same results/signature as the live session (no mismatch).
+
+    Debug shows searchSignature changed and matches what was used to fetch.
+
+(Optional quick hardening):
+
+    Set refetchOnMount: 'always' for the Step 4 query, and disable keepPreviousData when the signature changes.
+
+    Add a unit test: given two different signatures, ensure the merged list cache keys differ and pagination resets.
