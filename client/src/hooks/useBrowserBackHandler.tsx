@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
+import { useWizardStore } from '@/state/wizard';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,16 +11,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useQueryClient } from '@tanstack/react-query';
-import { useWizardStore } from '@/state/wizard';
-import { useToast } from '@/hooks/use-toast';
-
-interface NewSearchButtonProps {
-  currentStep: string;
-  onNavigateToStart?: () => void;
-}
 
 // Helper function to clear search queries
 function clearSearchQueries(queryClient: any, searchId?: string) {
@@ -39,13 +31,45 @@ function clearSearchQueries(queryClient: any, searchId?: string) {
   queryClient.invalidateQueries({ queryKey: ['/api/hh'] });
 }
 
-export default function NewSearchButton({ currentStep, onNavigateToStart }: NewSearchButtonProps) {
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const { resetSearch } = useWizardStore();
+interface BrowserBackHandlerProps {
+  onNavigateToStart?: () => void;
+}
+
+export function BrowserBackHandler({ onNavigateToStart }: BrowserBackHandlerProps) {
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const { currentStep, resetSearch } = useWizardStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const handleNewSearch = () => {
+  useEffect(() => {
+    // Only handle browser back on Steps 2, 3, and 4
+    if (!['confirm', 'filters', 'results'].includes(currentStep)) {
+      return;
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      // Prevent the default back behavior
+      event.preventDefault();
+      
+      // Push a new state to prevent actual navigation
+      window.history.pushState(null, '', window.location.href);
+      
+      // Show confirmation dialog
+      setShowBackConfirm(true);
+    };
+
+    // Add an extra state to the history stack so back button triggers our handler
+    window.history.pushState(null, '', window.location.href);
+    
+    // Listen for popstate (back button)
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentStep]);
+
+  const handleConfirmNewSearch = () => {
     // Clear React Query cache
     clearSearchQueries(queryClient);
     
@@ -63,23 +87,12 @@ export default function NewSearchButton({ currentStep, onNavigateToStart }: NewS
       description: "Set your keywords to continue.",
     });
     
-    setShowConfirmDialog(false);
+    setShowBackConfirm(false);
   };
 
   return (
-    <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-      <AlertDialogTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          className="flex items-center gap-2"
-          data-testid="button-new-search"
-        >
-          <RotateCcw className="h-4 w-4" />
-          New Search
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent data-testid="dialog-new-search-confirm">
+    <AlertDialog open={showBackConfirm} onOpenChange={setShowBackConfirm}>
+      <AlertDialogContent data-testid="dialog-browser-back-confirm">
         <AlertDialogHeader>
           <AlertDialogTitle>Start a new search?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -87,10 +100,10 @@ export default function NewSearchButton({ currentStep, onNavigateToStart }: NewS
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel data-testid="button-cancel-new-search">Cancel</AlertDialogCancel>
+          <AlertDialogCancel data-testid="button-cancel-browser-back">Cancel</AlertDialogCancel>
           <AlertDialogAction 
-            onClick={handleNewSearch}
-            data-testid="button-confirm-new-search"
+            onClick={handleConfirmNewSearch}
+            data-testid="button-confirm-browser-back"
           >
             Start New Search
           </AlertDialogAction>
@@ -98,4 +111,8 @@ export default function NewSearchButton({ currentStep, onNavigateToStart }: NewS
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+export default function useBrowserBackHandler(onNavigateToStart?: () => void) {
+  return { BrowserBackHandler: () => <BrowserBackHandler onNavigateToStart={onNavigateToStart} /> };
 }

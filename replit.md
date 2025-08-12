@@ -8,6 +8,18 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+**Forward-Only Flow Implementation (January 2025):**
+- Enforced strictly forward-only navigation throughout the wizard - no back buttons or backward navigation allowed
+- Removed all "Back" buttons from Steps 2, 3, and 4, replaced with right-aligned "Continue" and "Search Jobs" buttons
+- Implemented browser back button interception with confirmation dialog using useBrowserBackHandler hook
+- Updated all back navigation actions to show "Start a new search?" confirmation with New Search functionality
+- Enhanced empty state and error state messages to guide users toward New Search instead of back navigation
+- Modified server API validation to reject saves before Step 4 is reached (hasReachedStep4 requirement)
+- Updated confirmation dialog copy to: "Your current progress will be cleared. We only save once you reach Step 4."
+- Added Step 4 helper text: "Want different results? Start a New Search to change keywords or filters."
+- Cleaned up unused goBack imports and references throughout the wizard components
+- Created comprehensive browser back handling that preserves user intent while enforcing forward-only flow
+
 **Phase 4: Enhanced Search with Hard Filters and Keyword Expansion (January 2025):**
 - Implemented hard filtering for exclude words - completely removes matching vacancies instead of score penalties
 - Added Gemini-powered keyword expansion with preview and opt-in controls

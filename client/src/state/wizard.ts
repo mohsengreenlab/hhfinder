@@ -761,7 +761,7 @@ export const useWizardStore = create<WizardState>()(
         });
       },
       
-      // Reset search - clear all search state but keep user settings
+      // Reset search - clear all search state but keep user settings (for New Search functionality)
       resetSearch: () => {
         // Clear search-specific localStorage
         try {

@@ -1,0 +1,106 @@
+Task: Enforce forward-only flow (Back = New Search)
+Goal
+
+Make the wizard strictly forward only. There is no going back to earlier steps. Any “back” action (buttons, stepper clicks, browser back) should be treated as starting a New Search (full reset → Step 1). Users can only change keywords/filters before they reach Step 4; once on Step 4, adjustments require a New Search.
+What changes
+
+    Remove all back navigation across Steps 2, 3, and 4:
+
+        No “Back” buttons.
+
+        Stepper/crumbs should not allow clicking previous steps.
+
+        Any UI hint that suggests going back must be removed.
+
+    “Refine filters” on Step 4 stays removed (already requested).
+
+    Keep “New Search” visible on Steps 2–4. “New Search” = full reset of the current search and route to Step 1.
+
+Behavior rules
+
+    Forward only
+
+        Users can move Step 1 → 2 → 3 → 4.
+
+        There is no navigation to earlier steps.
+
+    Back equals New Search
+
+        If the user triggers any “back-like” action (including browser Back), show confirm:
+
+            “Start a new search? Your current progress will be cleared. We only save once you reach Step 4.”
+
+        If confirmed → fully reset and route to Step 1.
+
+        If canceled → stay on the current step.
+
+    Saving policy (unchanged intent)
+
+        No saving on Steps 1–3.
+
+        Start saving only at Step 4.
+
+        If a user was already on Step 4 (saved search) and starts a New Search, that creates a new search only after they reach Step 4 again. Past searches remain untouched.
+
+    Step 4 editing
+
+        On Step 4, there is no way to alter keywords or filters directly or by going back.
+
+        Show a small hint if needed: “To change keywords or filters, start a New Search.”
+
+    Deep links & direct URLs
+
+        If someone tries to open an earlier step for a saved search, redirect to Step 4 with a notice: “This search is read-only for viewing. Start a New Search to change settings.”
+
+        For unsaved (pre-Step-4) work, allow Step 2/3 direct entry, but still no back to earlier steps; “New Search” is the only reset path.
+
+State & reset (high level)
+
+    New Search / Back confirm → full reset of the in-progress search:
+
+        Clear keywords, expansions, negative words, toggles.
+
+        Clear all filters.
+
+        Clear step 4 viewer state (index, generated letter, etc.).
+
+        Invalidate/remove any cached search results.
+
+        Remove per-search local persistence.
+
+        Keep global user preferences/settings.
+
+    Auto-save is gated by “hasReachedStep4=true” as already implemented.
+
+Copy updates (simple language)
+
+    Confirm dialog:
+    “Start a new search? Your current progress will be cleared. We only save once you reach Step 4.”
+
+    Step 4 helper (optional, small text):
+    “Want different results? Start a New Search to change keywords or filters.”
+
+    Empty state on Step 4:
+    “No results for these settings. Start a New Search to try different keywords or filters.”
+
+Acceptance criteria
+
+    There is no Back action anywhere in the wizard UI (desktop or mobile).
+
+    Clicking older steps in the stepper does nothing or opens the New Search confirm (choose one consistent behavior); it never navigates back.
+
+    Pressing the browser Back shows the New Search confirm; confirm resets to Step 1; cancel stays.
+
+    “Refine filters” is absent from Step 4, and the header/toolbar looks clean and aligned.
+
+    Results always refresh correctly when reaching Step 4 after a New Search (no stale data).
+
+    No data is saved before Step 4; saving starts only at Step 4.
+
+    Starting a New Search never overwrites a previously saved search; a new record is created only after reaching Step 4 again.
+
+    Direct links to earlier steps for saved searches redirect to Step 4 with the explanatory notice.
+
+Suggested commit message
+
+Enforce forward-only flow: remove back navigation; treat any back action as New Search; keep save-at-Step-4 policy; maintain fresh results and clean UI on Step 4.

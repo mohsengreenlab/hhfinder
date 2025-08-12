@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Search, MapPin, Building, Train, Tag, Filter, Sparkles } from 'lucide-react';
+import { Search, MapPin, Building, Train, Tag, Filter, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,7 +18,7 @@ interface Step3FiltersProps {
 }
 
 export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
-  const { filters, setFilters, updateSearchSignature, goBack, goNext, selectedKeywords, setSelectedKeywords } = useWizardStore();
+  const { filters, setFilters, updateSearchSignature, goNext, selectedKeywords, setSelectedKeywords } = useWizardStore();
   const [showKeywordExpansion, setShowKeywordExpansion] = useState(false);
   
   // Ensure all new fields exist (migration from old localStorage)
@@ -766,22 +766,12 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4 mt-8">
-          <Button
-            type="button"
-            onClick={goBack}
-            variant="outline"
-            className="flex-1 py-3 px-6 rounded-xl font-semibold"
-            data-testid="back-button"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+        {/* Navigation - Forward Only */}
+        <div className="flex justify-end gap-4 mt-8">
           <Button
             type="button"
             onClick={handleSubmit}
-            className="flex-1 bg-primary-600 text-white py-3 px-6 rounded-xl font-semibold 
+            className="w-full max-w-md bg-primary-600 text-white py-3 px-6 rounded-xl font-semibold 
                        hover:bg-primary-700 transition-colors"
             data-testid="search-jobs-button"
           >

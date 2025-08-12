@@ -5,6 +5,7 @@ import Step3Filters from '@/steps/Step3Filters';
 import Step4Viewer from '@/steps/Step4Viewer';
 import TransitionLoader from '@/components/TransitionLoader';
 import WizardHeader from '@/components/WizardHeader';
+import useBrowserBackHandler from '@/hooks/useBrowserBackHandler';
 
 interface HomeProps {
   onBackToDashboard?: () => void;
@@ -12,6 +13,7 @@ interface HomeProps {
 
 export default function Home({ onBackToDashboard }: HomeProps = {}) {
   const { currentStep, isTransitioning, transitionFrom, transitionTo, completeTransition, setStep } = useWizardStore();
+  const { BrowserBackHandler } = useBrowserBackHandler(() => setStep('keywords'));
 
   const handleNavigateToStart = () => {
     setStep('keywords');
@@ -54,6 +56,9 @@ export default function Home({ onBackToDashboard }: HomeProps = {}) {
       <div className="pt-16 min-h-screen flex items-center justify-center p-4">
         {renderStep()}
       </div>
+      
+      {/* Browser back handler */}
+      <BrowserBackHandler />
     </div>
   );
 }

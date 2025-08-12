@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Plus, X, Minus, Settings } from 'lucide-react';
+import { ArrowRight, Plus, X, Minus, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,7 +35,6 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
     removeKeyword,
     commitKeywords,
     updateSearchSignature,
-    goBack, 
     goNext 
   } = useWizardStore();
 
@@ -349,18 +348,8 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
             </div>
           )}
 
-          {/* Navigation */}
-          <div className="flex gap-4">
-            <Button
-              type="button"
-              onClick={goBack}
-              variant="outline"
-              className="flex-1 py-3 px-6 rounded-xl font-semibold"
-              data-testid="back-button"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
+          {/* Navigation - Forward Only */}
+          <div className="flex justify-end gap-4">
             <Button
               type="button"
               onClick={() => {
@@ -375,7 +364,7 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
                 goNext();
               }}
               disabled={!canContinue}
-              className="flex-1 bg-primary-600 text-white py-3 px-6 rounded-xl font-semibold 
+              className="w-full max-w-md bg-primary-600 text-white py-3 px-6 rounded-xl font-semibold 
                          hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed 
                          transition-colors"
               data-testid="continue-button"

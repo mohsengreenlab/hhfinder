@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
-  ArrowLeft, 
   ChevronLeft, 
   ChevronRight, 
   ExternalLink, 
-  FileText, 
-  Filter,
+  FileText,
   Home,
   CheckCircle,
   AlertCircle
@@ -79,7 +77,7 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     markSearchCompleted,
     checkSearchNeedsRefresh,
     jumpToVacancy,
-    goBack,
+
     generateSearchSignature,
     updateSearchSignature,
     isSearchSignatureChanged,
@@ -1148,10 +1146,9 @@ ${jobInfo.description}`;
             <p className="text-slate-600 mb-6" data-testid="error-message">
               {searchError instanceof Error ? searchError.message : 'Failed to search vacancies'}
             </p>
-            <Button onClick={goBack} variant="outline" data-testid="go-back-button">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
-            </Button>
+            <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg inline-block">
+              Use the "New Search" button in the header to try again.
+            </div>
           </div>
         </div>
       </div>
@@ -1168,12 +1165,11 @@ ${jobInfo.description}`;
               No jobs found
             </h1>
             <p className="text-slate-600 mb-6">
-              Try adjusting your filters to find more opportunities
+              No results for these settings. Start a New Search to try different keywords or filters.
             </p>
-            <Button onClick={goBack} variant="outline" data-testid="refine-filters-button">
-              <Filter className="mr-2 h-4 w-4" />
-              Refine Filters
-            </Button>
+            <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg inline-block">
+              Use the "New Search" button in the header to change your settings.
+            </div>
           </div>
         </div>
       </div>
@@ -1231,16 +1227,9 @@ ${jobInfo.description}`;
               </p>
             )}
           </div>
-          <Button
-            type="button"
-            onClick={goBack}
-            variant="outline"
-            className="bg-slate-200 text-slate-700 hover:bg-slate-300"
-            data-testid="refine-filters-header-button"
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            Refine Filters
-          </Button>
+          <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg">
+            Want different results? Start a New Search to change keywords or filters.
+          </div>
         </div>
       </div>
 
