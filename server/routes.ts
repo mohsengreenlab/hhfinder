@@ -538,31 +538,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         specialization: req.query.specialization as string,
         metro: req.query.metro as string,
         employer_id: req.query.employer_id as string,
-        search_field: req.query.search_field as string[],
+        search_field: Array.isArray(req.query.search_field) ? req.query.search_field : [req.query.search_field].filter(Boolean),
         label: req.query.label as string[]
       };
       
-      // Generate server signature from actual params used
-      const serverSignature = `server_${params.text || 'notext'}_${params.search_field?.join('-') || 'nosf'}_${Date.now().toString(36)}`;
+      // Generate server signature from actual params used (after ensuring search_field is array)
+      const searchFieldArray = Array.isArray(params.search_field) ? params.search_field : [params.search_field].filter(Boolean);
+      const serverSignature = `server_${params.text || 'notext'}_${searchFieldArray.join('-') || 'nosf'}_${Date.now().toString(36)}`;
       
       // Extensive debugging
       console.log(`🔍 [${searchRunId}] Server Search Debug:`);
       console.log(`   Client Signature: ${clientSignature}`);
       console.log(`   Server Signature: ${serverSignature}`);
       console.log(`   Resolved Keywords: [${params.text || 'none'}]`);
-      console.log(`   Search Field: ${params.search_field?.join(',') || 'default'}`);
+      console.log(`   Search Field: ${searchFieldArray.join(',') || 'default'}`);
       console.log(`   Full Params:`, JSON.stringify(params, null, 2));
-
-      // Debug logging if enabled (check request query parameter)
-      const debugMode = req.query.debug === 'true';
-      if (debugMode) {
-        console.log('🔍 Backend HH.ru Search Debug:');
-        console.log('Final HH.ru parameters:', params);
-        console.log('Title-first active:', !!params.search_field?.includes('name'));
-        console.log('Exact phrases detected:', params.text?.includes('"'));
-      }
-
+      
       const { data, timing } = await hhClient.searchVacancies(params);
+      
+      console.log(`🔍 [${searchRunId}] HH.ru Response: status=200, found=${data.found}, items=${data.items?.length || 0}`);
 
       // Trim payload to essentials + add echo data
       const trimmed = {
@@ -587,12 +581,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           resolvedFilters: {
             area: params.area,
             experience: params.experience,
-            searchField: params.search_field
+            searchField: searchFieldArray
           },
+          httpStatus: 200,
+          hhCount: data.found || 0,
+          parsedCount: data.items?.length || 0,
           searchRunId,
-          tier: params.search_field?.includes('name') ? 'title' : 
-                params.search_field?.includes('description') ? 'description' : 
-                params.search_field?.includes('company_name') ? 'skills' : 'unknown'
+          tier: searchFieldArray.includes('name') ? 'title' : 
+                searchFieldArray.includes('description') ? 'description' : 
+                searchFieldArray.includes('company_name') ? 'skills' : 'unknown'
         }
       };
       

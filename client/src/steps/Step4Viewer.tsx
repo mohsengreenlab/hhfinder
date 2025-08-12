@@ -439,12 +439,13 @@ ${jobInfo.description}`;
       
       const tierResults: { tier: string; items: any[]; count: number; url: string }[] = [];
 
-      // Apply AND vs OR logic for multiple keywords
+      // Apply AND vs OR logic for multiple keywords (with Safe Mode override)
       const keywordTexts = selectedKeywordsCanonical.map(k => k.text);
-      const useAnd = filters.useAndAcrossPhrases && keywordTexts.length > 1;
+      const isSafeMode = filters.safeMode;
+      const useAnd = isSafeMode ? false : (filters.useAndAcrossPhrases && keywordTexts.length > 1);
       
-      // Prepare exclude words for hard filtering
-      const excludeWords = (filters.excludeWords || '')
+      // Prepare exclude words for hard filtering (disabled in Safe Mode)
+      const excludeWords = isSafeMode ? [] : (filters.excludeWords || '')
         .split(',')
         .map(word => {
           const trimmed = word.trim();
@@ -454,6 +455,11 @@ ${jobInfo.description}`;
             : trimmed;
         })
         .filter(word => word.length > 0);
+        
+      // Safe Mode debugging logs
+      if (process.env.NODE_ENV === 'development' && isSafeMode) {
+        console.log('🔧 Safe Mode ACTIVE: titleFirst=false, exactPhrases=false, AND=false, excludes=[], using OR search across all tiers');
+      }
 
       // Function to check if vacancy should be excluded (hard filter)
       const isVacancyExcluded = (vacancy: any, excludeKeywords: string[]) => {
@@ -619,8 +625,8 @@ ${jobInfo.description}`;
         }
       });
       
-      // Use company_name fallback only if enabled
-      if (filters.useCompanyFallback) {
+      // Use company_name fallback only if enabled (Safe Mode forces company_name for broader results)
+      if (isSafeMode || filters.useCompanyFallback) {
         skillsParams.set('search_field', 'company_name'); // Fallback since HH.ru doesn't support skills directly
       } else {
         // Pure skills search without company bias - will rely entirely on client-side key_skills matching

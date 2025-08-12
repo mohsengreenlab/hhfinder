@@ -42,7 +42,9 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
     // New search options with defaults
     titleFirstSearch: filters.titleFirstSearch ?? true,
     useExactPhrases: filters.useExactPhrases ?? true,
-    enableDebugMode: filters.enableDebugMode ?? false
+    enableDebugMode: filters.enableDebugMode ?? false,
+    // Safe Mode toggle - temporary for diagnostics
+    safeMode: filters.safeMode ?? false
   };
   
   // Local form state
@@ -723,6 +725,24 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
                 checked={localFilters.useCompanyFallback !== false} // Default true
                 onCheckedChange={(checked) => handleLocalChange('useCompanyFallback', checked)}
                 data-testid="skills-company-fallback-switch"
+              />
+            </div>
+            
+            {/* Safe Mode toggle - temporary for diagnostics */}
+            <div className="flex items-center justify-between border-2 border-orange-200 bg-orange-50 p-3 rounded-lg">
+              <div>
+                <Label htmlFor="safe-mode" className="text-sm font-medium text-orange-700">
+                  🔧 Safe Mode (Diagnostics)
+                </Label>
+                <p className="text-xs text-orange-600 mt-1">
+                  Temporary: Forces loose search settings to test if results appear
+                </p>
+              </div>
+              <Switch
+                id="safe-mode"
+                checked={localFilters.safeMode}
+                onCheckedChange={(checked) => handleLocalChange('safeMode', checked)}
+                data-testid="safe-mode-switch"
               />
             </div>
             

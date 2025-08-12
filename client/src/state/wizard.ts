@@ -53,7 +53,8 @@ function generateSaveSignature(state: any): string {
       useExactPhrases: state.filters.useExactPhrases,
       useAndAcrossPhrases: state.filters.useAndAcrossPhrases,
       useCompanyFallback: state.filters.useCompanyFallback,
-      excludeWords: state.filters.excludeWords.trim().toLowerCase()
+      excludeWords: state.filters.excludeWords.trim().toLowerCase(),
+      safeMode: state.filters.safeMode
     },
     currentStep: state.currentStep,
     currentVacancyIndex: state.currentVacancyIndex
@@ -111,6 +112,7 @@ export interface WizardFilters {
   useCompanyFallback: boolean;
   enableDebugMode: boolean;
   excludeWords: string;
+  safeMode: boolean;
 }
 
 export interface WizardState {
@@ -239,7 +241,8 @@ const defaultFilters: WizardFilters = {
   useAndAcrossPhrases: JSON.parse(localStorage.getItem('useAndAcrossPhrases') ?? 'true'),
   useCompanyFallback: JSON.parse(localStorage.getItem('useCompanyFallback') ?? 'true'),
   enableDebugMode: JSON.parse(localStorage.getItem('enableDebugMode') ?? 'false'),
-  excludeWords: localStorage.getItem('excludeWords') ?? ''
+  excludeWords: localStorage.getItem('excludeWords') ?? '',
+  safeMode: false
 };
 
 export const useWizardStore = create<WizardState>()(

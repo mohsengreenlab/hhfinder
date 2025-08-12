@@ -1,0 +1,97 @@
+“No jobs found” after echo/bypass changes — need Safe Mode + tier verification
+
+Goal: prove where results vanish: HH.ru call, merge, or client parsing.
+1) Add a one-click Safe Mode (temporary toggle in Step 3)
+
+When Safe Mode = ON, force:
+
+    Title-first: OFF
+
+    Exact phrase: OFF (no quotes)
+
+    Phrase logic: OR
+
+    Excludes: OFF
+
+    Company fallback for Skills: OFF
+
+    Region: All regions (no area param)
+
+    Period: 30 days
+
+    Keep BYPASS_SEARCH_CACHE = true
+
+This should return something for very common queries. If Safe Mode still returns 0, it’s not a strictness problem.
+2) Echo FULL tier info including HTTP status
+
+For the next run, include in debugEcho per tier:
+
+    url, params.text, params.search_field, httpStatus, hhCount (what HH reports), parsedCount (items we parsed)
+
+    On the server, log the same with X-Search-Run-Id = clientSignature.
+
+3) Client must read the correct field from the new response
+
+Double-check the client isn’t accidentally reading debugEcho instead of the real vacancies array. In the merge function, confirm the source is still:
+
+const titleItems = resp.title.items;        // or whatever it was before
+const descItems  = resp.description.items;
+const skillsItems= resp.skills.items;
+
+If you changed the response shape, update the client mapping accordingly. Add a quick guard:
+
+if (!Array.isArray(titleItems) && debugEcho?.title?.hhCount > 0) {
+  console.warn('Mapping bug: title items missing while HH returned >0');
+}
+
+4) Verify merge isn’t dropping results
+
+Log after fetch, before merge:
+
+    titleItems.length, descItems.length, skillsItems.length
+    Log after merge/dedupe:
+
+    uniqueIds.size, merged.length
+    If any tier has >0 but merged.length becomes 0, there’s a merge bug (common mistakes: using && instead of concatenation, wrong key for IDs, filtering by excluded terms with an empty string entry, etc.).
+
+5) Run two quick probes and paste TEXT (not screenshots)
+
+A) Safe Mode ON
+Step 2: "react developer" (or "английский").
+Paste:
+
+    clientSignature, serverSignature
+
+    For each tier: httpStatus, params.text, params.search_field, hhCount, parsedCount
+
+    titleItems.length, descItems.length, skillsItems.length, merged.length
+
+    First 2 titles (if any)
+
+B) Strict Mode (your usual defaults)
+Title-first ON, Exact phrase ON, AND default, excludes as you had. Same paste.
+6) Common quick fixes to apply if we see them
+
+    Over-quoting: If params.text shows nested quotes like "%22английский%22", strip extra quotes—only send "английский" once; URL encoding should produce %22…%22 automatically.
+
+    Region null: If “All regions” accidentally sends area=0 or an empty string, omit the param instead.
+
+    Excludes bug: Ensure exclude array doesn’t contain ''; an empty string can match everything.
+
+    Period too strict: If period=0 slipped in, set to 7 or 30.
+
+    Skills tier misuse: Don’t treat company_name hits as results if client-side key_skills has matches; both should contribute to Tier C.
+
+    Response shape drift: If you added debugEcho, keep results unchanged; if not, update the client mapper to the new shape.
+
+Acceptance
+
+    Safe Mode returns >0 for common queries.
+
+    Strict Mode returns results unless the query is genuinely too narrow (and shows your “broadened to OR” message).
+
+    hhCount > 0 implies parsedCount > 0 and merged.length > 0.
+
+    clientSignature === serverSignature.
+
+    When any tier has >0, “No jobs found” must not appear.
