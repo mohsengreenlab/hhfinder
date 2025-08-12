@@ -7,7 +7,7 @@ const AUTO_SAVE_ENABLED = false; // Set to false to test if auto-save is causing
 // External refs to prevent auto-save state from triggering re-renders
 let inFlightRef = false;
 let lastSavedHashRef = '';
-let debounceTimeoutRef: number | null = null;
+let debounceTimeoutRef: NodeJS.Timeout | null = null;
 
 // Counters for debugging
 let saveSignatureChanges = 0;
@@ -140,6 +140,8 @@ export interface WizardState {
   
   // Auto-save state (external refs prevent re-render loops)
   currentApplicationId: number | null;
+  isSaving: boolean;
+  lastSavedAt: Date | null;
   
   // Change tracking for live sync
   lastSearchKeywords: SelectedKeyword[];
@@ -258,6 +260,8 @@ export const useWizardStore = create<WizardState>()(
       
       // Auto-save state
       currentApplicationId: null,
+      isSaving: false,
+      lastSavedAt: null,
       
       // Change tracking for live sync
       lastSearchKeywords: [],

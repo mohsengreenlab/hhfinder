@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   ArrowLeft, 
   ChevronLeft, 
@@ -38,7 +38,7 @@ const searchLoadingMessages = [
 // Environment toggles for binary search debugging
 const ENABLE_STEP4_MINIMAL = false; // Set to true to test minimal render
 const ENABLE_STEP4_DEBUG_PANEL = true; // Debug panel only
-const ENABLE_STEP4_QUERY = false; // React Query hook
+const ENABLE_STEP4_QUERY = true; // React Query hook  
 const ENABLE_STEP4_SIGNATURE_EFFECT = true; // Signature change effect
 const ENABLE_STEP4_SMOOTH_SCROLL = false; // Smooth scrolling effects
 const ENABLE_STEP4_PAGE_JUMP = false; // Page jump control
