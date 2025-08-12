@@ -35,13 +35,29 @@ const searchLoadingMessages = [
   "Finding perfect matches…"
 ];
 
+// Environment toggle for binary search debugging
+const ENABLE_STEP4_MINIMAL = true; // Set to true to test minimal render
 
+// Instrumentation counters
+let renderCount = 0;
+const effectRuns = {
+  signature: 0,
+  querySuccess: 0
+};
+let setIndexCalls = 0;
 
 interface Step4ViewerProps {
   onBackToDashboard?: () => void;
 }
 
 export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
+  renderCount++;
+  console.log(`Step4Viewer render #${renderCount}`);
+  
+  // Early return for minimal testing
+  if (ENABLE_STEP4_MINIMAL) {
+    return <div>Step 4 minimal</div>;
+  }
   const { 
     selectedKeywords, 
     filters, 

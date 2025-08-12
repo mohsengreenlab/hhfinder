@@ -293,6 +293,9 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setSelectedKeywords: (keywords) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Store: setSelectedKeywords(${keywords.length} keywords)`);
+        }
         const { lastSearchKeywords } = get();
         set({ 
           selectedKeywords: keywords,
@@ -321,6 +324,9 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setFilters: (newFilters) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Store: setFilters(${Object.keys(newFilters).join(', ')})`);
+        }
         const { filters, lastSearchFilters } = get();
         const updatedFilters = { ...filters, ...newFilters };
         
@@ -366,6 +372,9 @@ export const useWizardStore = create<WizardState>()(
       },
       
       setCurrentVacancyIndex: (index) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Store: setCurrentVacancyIndex(${index})`);
+        }
         set({ currentVacancyIndex: index });
         // Update save signature to trigger centralized auto-save
         const state = get();

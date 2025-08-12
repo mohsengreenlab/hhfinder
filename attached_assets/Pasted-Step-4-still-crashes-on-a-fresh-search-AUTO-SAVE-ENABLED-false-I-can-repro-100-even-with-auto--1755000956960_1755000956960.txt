@@ -1,0 +1,90 @@
+Step 4 still crashes on a fresh search (AUTO_SAVE_ENABLED = false)
+
+I can repro 100% even with auto-save off, so there’s a second loop in Step 4. Please isolate + fix using the steps below and paste back the findings (text, not screenshots).
+0) Quick instrumentation (add and keep during triage)
+
+    In Step4Viewer add counters (useRef + console.log):
+    renderCount, effectRuns.signature, effectRuns.querySuccess, setIndexCalls.
+
+    In the store, add logs for every setter used by Step 4 (currentIndex, lastLoadedSignature, filters/keywords setters, debug toggles), but only log in dev.
+
+1) Binary search the culprit (feature toggles)
+
+Temporarily add env toggles and short-circuit renders:
+
+    ENABLE_STEP4_MINIMAL: when true, return early from Step4Viewer with <div>Step 4 minimal</div> (no children, no hooks except the render counter).
+
+        If the loop stops here → the loop is within Step 4 subtree.
+
+    If minimal view stops the loop, re-enable features one by one in this order, testing after each:
+
+        Debug panel
+
+        React Query hook (useQuery for tiered results)
+
+        Signature-change effect (the one that resets/clamps index and sets lastLoadedSignature)
+
+        Smooth scrolling effects (scroll-to-top / scroll to generator)
+
+        Page-jump control
+
+        Cover letter generator
+
+Paste which step reintroduces the loop and the latest counters.
+2) Likely fixes (apply as you go)
+A) Query key must be stable primitives only
+
+    Ensure the queryKey is exactly: ['vacancies', appId, searchSignature].
+    No objects/arrays from props/state (e.g., don’t include {filters} or inline option objects).
+
+    In v5, avoid anything that mutates state in select or onSuccess that could affect searchSignature or pagination.
+
+B) Signature effect must be idempotent
+
+    In Step4Viewer, the effect that reacts to searchSignature should:
+
+        Guard with a ref: if sigRef.current === currentSignature → return.
+
+        If different: reset/clamp index, invalidate the query, then set sigRef.current = currentSignature.
+
+    Never call any keyword/filter/signature setters from Step 4.
+
+    Don’t set any store field that is used to compute searchSignature.
+
+C) No state writes during render (including Debug)
+
+    Search Step 4 subtree for any setState / store writes outside useEffect / event handlers.
+
+    Debug panel must be read-only. If it needs to persist a toggle, do it in a guarded useEffect that can’t affect the signature.
+
+D) Smooth scroll & index clamp
+
+    These effects must not write back the same value repeatedly.
+
+        Wrap index updates with an equality check: if nextIndex === currentIndex → return.
+
+        Ensure they do not run on every render (deps arrays correct).
+
+E) React 18 Strict Mode
+
+    All effects must be safe under double-invoke in dev. If needed, gate side effects with a ref so they run once per signature.
+
+3) What to paste back
+
+    Which toggle/feature reintroduced the loop (step number).
+
+    The Step 4 effect code that runs on signature change (just that hook).
+
+    The useQuery options block (key, fn, onSuccess/select).
+
+    Latest counters: renderCount, effectRuns.signature, effectRuns.querySuccess, setIndexCalls for one fresh search.
+
+Acceptance
+
+    With auto-save OFF and all features ON, fresh search reaches Step 4 with no overlay.
+
+    Counters for one fresh search show exactly one signature-triggered reset and fetch.
+
+    Reordering keywords / case / whitespace doesn’t refetch (same signature).
+
+    tsc --noEmit still clean.
