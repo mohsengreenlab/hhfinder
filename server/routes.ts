@@ -320,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  // Protected AI and search routes
+  // Protected AI and search routes - Russian-first suggestions
   app.get('/api/ai-keywords', requireAuth, async (req, res) => {
     const startTime = Date.now();
     
@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Query parameter "q" is required' });
       }
 
-      const cacheKey = `ai-keywords:${query}`;
+      const cacheKey = `ai-keywords-ru:${query}`;
       const cached = suggestionsCache.get(cacheKey);
       if (cached) {
         res.locals.addTiming('cache', Date.now() - startTime);
@@ -339,41 +339,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await coalesceRequest(cacheKey, async () => {
         const aiStartTime = Date.now();
+        let aiSeeds = null;
+        let aiDuration = 0;
         
-        // Generate AI titles
-        const aiTitles = await aiClient.generateJobTitles(query);
-        const aiDuration = Date.now() - aiStartTime;
-
-        // Verify titles with HH.ru suggestions API
-        const hhStartTime = Date.now();
-        const allSuggestions = new Map<string, number>();
-
-        // Check AI titles and extract key words for verification
-        const searchTerms = new Set<string>();
-        
-        for (const title of aiTitles) {
-          // Add the full title if it's reasonable length
-          if (title.length >= 3 && title.length <= 50) {
-            searchTerms.add(title);
-          }
-          
-          // Extract meaningful words (3+ characters)
-          const words = title.toLowerCase().split(/[^a-zа-я0-9]+/).filter(word => word.length >= 3);
-          words.forEach(word => searchTerms.add(word));
+        try {
+          // Generate Russian seed terms using Gemini
+          aiSeeds = await aiClient.generateRussianSeedTerms(query);
+          aiDuration = Date.now() - aiStartTime;
+        } catch (error) {
+          console.error('Gemini AI failed, using fallback:', error);
+          aiDuration = Date.now() - aiStartTime;
+          // Fallback: use user's query as direct seed
+          aiSeeds = {
+            exactPhrases: [query],
+            strongSynonyms: [],
+            weakAmbiguous: [],
+            allowedEnglishAcronyms: []
+          };
         }
 
-        // Limit to prevent too many API calls
-        const termsToCheck = Array.from(searchTerms).slice(0, 20);
+        // Verify and expand with HH.ru suggestions API
+        const hhStartTime = Date.now();
+        const categorizedSuggestions = {
+          exactPhrases: new Map<string, number>(),
+          strongSynonyms: new Map<string, number>(),
+          weakAmbiguous: new Map<string, number>()
+        };
 
-        for (const term of termsToCheck) {
+        // Process all seed terms through HH.ru
+        const allSeedTerms = [
+          ...aiSeeds.exactPhrases,
+          ...aiSeeds.strongSynonyms,
+          ...aiSeeds.weakAmbiguous,
+          ...aiSeeds.allowedEnglishAcronyms
+        ];
+
+        for (const term of allSeedTerms.slice(0, 20)) { // Limit API calls
           try {
             const { data } = await hhClient.getSuggestions(term);
             if (data && data.items && Array.isArray(data.items)) {
               data.items.forEach((item: any) => {
                 if (item && item.text) {
-                  const text = item.text;
-                  const count = allSuggestions.get(text) || 0;
-                  allSuggestions.set(text, count + 1);
+                  const text = item.text.trim();
+                  
+                  // Categorize based on original seed source and Russian priority
+                  let category: keyof typeof categorizedSuggestions = 'strongSynonyms';
+                  
+                  if (aiSeeds.exactPhrases.includes(term)) {
+                    category = 'exactPhrases';
+                  } else if (aiSeeds.weakAmbiguous.includes(term)) {
+                    category = 'weakAmbiguous';
+                  }
+                  
+                  // Russian terms get priority (move up category if Russian)
+                  const isRussian = /[а-яё]/i.test(text);
+                  if (isRussian && category === 'weakAmbiguous') {
+                    category = 'strongSynonyms';
+                  } else if (isRussian && category === 'strongSynonyms' && 
+                             aiSeeds.exactPhrases.some(exact => 
+                               text.toLowerCase().includes(exact.toLowerCase()) || 
+                               exact.toLowerCase().includes(text.toLowerCase()))) {
+                    category = 'exactPhrases';
+                  }
+                  
+                  const count = categorizedSuggestions[category].get(text) || 0;
+                  categorizedSuggestions[category].set(text, count + 1);
                 }
               });
             }
@@ -382,20 +412,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
 
         const hhDuration = Date.now() - hhStartTime;
 
-        // Sort and get top 10
-        const suggestionsTop10 = Array.from(allSuggestions.entries())
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 10)
-          .map(([text]) => ({ text, source: 'hh' as const }));
+        // Sort and deduplicate within categories
+        const dedupeAndSort = (suggestions: Map<string, number>, limit: number) => {
+          const entries = Array.from(suggestions.entries());
+          
+          // Deduplicate similar terms (case-insensitive, handle hyphens/spaces)
+          const deduped = new Map<string, { text: string; count: number; isRussian: boolean }>();
+          
+          entries.forEach(([text, count]) => {
+            const normalizedKey = text.toLowerCase()
+              .replace(/[-\s]/g, '')
+              .replace(/[^\wа-яё]/gi, '');
+            const isRussian = /[а-яё]/i.test(text);
+            
+            const existing = deduped.get(normalizedKey);
+            if (!existing || count > existing.count || (isRussian && !existing.isRussian)) {
+              deduped.set(normalizedKey, { text, count, isRussian });
+            }
+          });
+          
+          return Array.from(deduped.values())
+            .sort((a, b) => {
+              // Sort by: Russian first, then by count, then by length
+              if (a.isRussian !== b.isRussian) return a.isRussian ? -1 : 1;
+              if (a.count !== b.count) return b.count - a.count;
+              return a.text.length - b.text.length;
+            })
+            .slice(0, limit)
+            .map(item => ({ 
+              text: item.text, 
+              source: 'hh' as const,
+              isEnglish: !item.isRussian
+            }));
+        };
 
         const result = {
-          aiTitles,
-          suggestionsTop10
+          exactPhrases: dedupeAndSort(categorizedSuggestions.exactPhrases, 8),
+          strongSynonyms: dedupeAndSort(categorizedSuggestions.strongSynonyms, 12),
+          weakAmbiguous: dedupeAndSort(categorizedSuggestions.weakAmbiguous, 8),
+          aiSeeds: aiSeeds || null, // For debug mode
+          languageStats: {
+            totalSuggestions: 0,
+            russianCount: 0,
+            englishCount: 0
+          }
+        };
+
+        // Calculate language stats
+        const allSuggestions = [...result.exactPhrases, ...result.strongSynonyms, ...result.weakAmbiguous];
+        result.languageStats = {
+          totalSuggestions: allSuggestions.length,
+          russianCount: allSuggestions.filter(s => !s.isEnglish).length,
+          englishCount: allSuggestions.filter(s => s.isEnglish).length
         };
 
         res.locals.addTiming('ai', aiDuration);

@@ -1,0 +1,150 @@
+Task: Step 2 — Russian-first suggestions via HH.ru (Gemini only preps RU terms)
+Goal
+
+Make Step 2 show mostly Russian keyword suggestions that come from HH.ru’s keyword suggestion API. Gemini’s role is to take the user’s Step 1 input and produce a compact list of Russian candidate terms (plus a small, allowed set of English tech acronyms). We then call HH.ru’s /suggests/vacancy_search_keyword with those candidates, aggregate results, and present them for user selection.
+Why
+
+We want market-aligned, RU-language suggestions that match HH.ru’s vocabulary. English terms may appear only when they’re common technical acronyms (e.g., SQL, AWS, Docker), not general English job titles.
+High-level flow
+
+    Input (Step 1): User enters free-text (any language).
+
+    Gemini prep (server-side):
+
+        Normalize/understand the user’s intent.
+
+        Produce a small list of Russian seed terms (primary titles/phrases).
+
+        Allow a limited set of English technical acronyms if they are standard in job posts.
+
+    HH.ru verification (server-side):
+
+        For each RU seed term (and allowed acronyms), call HH.ru /suggests/vacancy_search_keyword (with Accept-Language: ru).
+
+        Aggregate, deduplicate, and rank suggestions (favor RU, prioritize exact/close matches).
+
+    Step 2 UI (client):
+
+        Display suggestions grouped into our existing categories (Exact phrases, Strong synonyms, Weak/ambiguous).
+
+        Show a tiny note: “Подсказки на русском; некоторые технические термины могут быть на английском.”
+
+        Default state: exact phrases = always on; strong synonyms = checked; weak/ambiguous = unchecked.
+
+        User selects and confirms to proceed.
+
+Language policy (strict)
+
+    Target: ≥90% suggestions in Russian.
+
+    Allowed English: only widely adopted technical acronyms/stack names (e.g., SQL, JS, TS, AWS, GCP, Docker, Kubernetes, Kafka, DevOps, ML, NLP).
+
+    Not allowed: generic English job titles/phrases when RU equivalents exist (e.g., prefer “разработчик” over “developer”).
+
+    Duplicates: merge RU/EN near-duplicates (e.g., “PostgreSQL” and “Postgres”).
+
+    Marking: Optionally mark English items with a small ENG badge; keep them unchecked by default unless they are acronyms.
+
+Gemini prompt/spec update (Step 2)
+
+Intent: Gemini should produce a short, Russian-first list of seed terms suitable for HH.ru suggestion expansion.
+
+Instructions for Gemini (behavioral spec, not code):
+
+    Output should be in Russian, concise, and job-market relevant for HH.ru.
+
+    Include:
+
+        Exact RU titles/phrases (2–8 items).
+
+        Strong RU synonyms (2–8 items).
+
+        Weak/ambiguous RU variants (0–5 items max).
+
+        Allowed EN acronyms/stack names only if truly standard (0–5 items).
+
+    Avoid generic English job titles. Prefer RU equivalents.
+
+    Prefer nouns/short noun phrases; avoid long sentences.
+
+    No explanations; just clean terms (we’ll categorize them).
+
+    Keep the full list under ~20 items total.
+
+Examples of allowed EN (if relevant): SQL, JavaScript, TypeScript, React, Node.js, Docker, Kubernetes, Kafka, AWS, GCP, ML, NLP, ETL.
+Examples to avoid (use RU): “software engineer”, “frontend developer”, “data analyst” → use “инженер-программист”, “фронтенд-разработчик”, “аналитик данных”.
+Ranking & dedupe (server behavior)
+
+    Preference order: RU exact phrases → RU strong synonyms → RU weak → EN acronyms.
+
+    Dedupe rules: case-insensitive, trim punctuation, treat hyphen/space variants as same (“фронтенд разработчик” ~ “фронтенд-разработчик”).
+
+    Tie-breakers: HH.ru frequency/relevance first; then shorter phrases; then presence of common stack words.
+
+UI/UX copy (Step 2)
+
+    Header subtitle: “Подсказки на русском (возможны английские тех. термины).”
+
+    Category titles remain: Точные фразы, Сильные синонимы, Слабые/неоднозначные.
+
+    Tooltip for ENG items: “Английский термин принят в индустрии.”
+
+    Primary action: “Подтвердить ключевые слова”.
+
+Error handling & fallback
+
+    If Gemini times out or rate-limits, skip straight to HH.ru suggestions using the user’s Step 1 input (still Accept-Language: ru) and show a subtle note: “Показаны подсказки HH.ru (без AI-расширения).”
+
+    Cache AI suggestions (as already configured) for 60s to reduce costs.
+
+    Never expose or log the AI key; keep calls server-side.
+
+Debug mode (transparency)
+
+    In the Step 2 debug panel, show:
+
+        The RU seed terms produced by Gemini (grouped by category).
+
+        How many suggestions HH.ru returned per seed.
+
+        Final suggestion counts by language (RU vs ENG acronyms).
+
+Acceptance criteria
+
+    Step 2 suggestions are predominantly Russian, with only a small number of allowed English technical acronyms.
+
+    HH.ru suggestions are always used as the final, selectable options; Gemini only prepares RU seed terms.
+
+    User sees the three categories with default checks: exact = on, strong = checked, weak = unchecked.
+
+    Dedupe and ranking favor RU over EN, and concise market terms over long phrases.
+
+    Fallback works: if Gemini fails, Step 2 still shows HH.ru suggestions based on the user’s input.
+
+    Debug mode clearly shows the RU seed list and language mix stats.
+
+    No API keys or prompts are exposed client-side; all calls remain server-side.
+
+Test cases
+
+    TC1 (EN input): User enters “data engineer airflow etl” in Step 1 → Step 2 shows RU suggestions like “инженер данных”, “ETL”, “Airflow”, with RU items dominating and EN only for acronyms/stack.
+
+    TC2 (RU input): User enters “фронтенд react” → RU suggestions dominate; “React” appears as allowed EN stack; categories are filled as expected.
+
+    TC3 (Mixed input): “python backend разработчик” → RU titles primarily; “Python” allowed; dedupe removes near-duplicates.
+
+    TC4 (Gemini down): Only HH.ru suggestions appear; a small note indicates AI expansion skipped.
+
+    TC5 (Debug): Debug shows Gemini RU seeds by category, counts per seed, RU/ENG ratio.
+
+Notes
+
+    Keep existing smart expansion categories and opt-in controls.
+
+    Keep existing hard exclude logic and later-step behavior unchanged.
+
+    Maintain server-only key handling and existing caching/timeout patterns.
+
+Suggested commit message
+
+“Step 2: Russian-first suggestions via HH.ru; Gemini prepares RU seed terms; allow only standard EN acronyms; ranking/dedupe updated; fallback preserved; debug transparency.”

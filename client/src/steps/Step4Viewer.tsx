@@ -1114,10 +1114,9 @@ ${jobInfo.description}`;
             <p className="text-slate-600 mb-6">
               Please choose at least one keyword to search for job opportunities
             </p>
-            <Button onClick={goBack} variant="default" data-testid="select-keywords-button">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Choose Keywords
-            </Button>
+            <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg inline-block">
+              Use the "New Search" button in the header to select keywords.
+            </div>
           </div>
         </div>
       </div>

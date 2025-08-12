@@ -52,8 +52,20 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
   });
 
   useEffect(() => {
-    if (data?.suggestionsTop10) {
-      setAISuggestions(data.suggestionsTop10);
+    if (data) {
+      // Handle new Russian-first structure
+      const allSuggestions = [
+        ...(data.exactPhrases || []),
+        ...(data.strongSynonyms || []),
+        ...(data.weakAmbiguous || [])
+      ];
+      
+      // Fallback to legacy structure if available
+      if (allSuggestions.length === 0 && data.suggestionsTop10) {
+        setAISuggestions(data.suggestionsTop10);
+      } else {
+        setAISuggestions(allSuggestions);
+      }
     }
   }, [data, setAISuggestions]);
 
@@ -175,10 +187,9 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
             <p className="text-slate-600 mb-6" data-testid="error-message">
               {error instanceof Error ? error.message : 'Failed to load suggestions'}
             </p>
-            <Button onClick={goBack} variant="outline" data-testid="retry-button">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
-            </Button>
+            <div className="text-sm text-slate-500">
+              Use "New Search" button in the header to try again with different keywords.
+            </div>
           </div>
         </div>
       </div>
@@ -193,8 +204,11 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
             Choose your keywords
           </h1>
           <p className="text-slate-600" data-testid="step2-description">
-            Select up to 3 verified keywords from our AI suggestions
+            Подсказки на русском (возможны английские тех. термины)
           </p>
+          <div className="text-sm text-slate-500 mt-2">
+            Select up to 3 keywords from Russian-first market suggestions
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -230,8 +244,11 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
           {aiSuggestions.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-slate-800 mb-4" data-testid="ai-suggestions-title">
-                AI-Generated Suggestions
+                Подсказки на русском
               </h3>
+              <div className="text-sm text-slate-500 mb-4">
+                Russian-first AI suggestions verified by HH.ru
+              </div>
               <div className="grid gap-3" data-testid="suggestions-list">
                 {aiSuggestions.map((suggestion, index) => (
                   <label 
@@ -258,11 +275,20 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
                     <span className="flex-1 text-slate-800" data-testid={`suggestion-text-${index}`}>
                       {suggestion.text}
                     </span>
+                    {(suggestion as any).isEnglish && (
+                      <span 
+                        className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded"
+                        title="Английский термин принят в индустрии"
+                        data-testid={`suggestion-eng-badge-${index}`}
+                      >
+                        ENG
+                      </span>
+                    )}
                     <span 
-                      className="ml-auto text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded"
+                      className="ml-2 text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded"
                       data-testid={`suggestion-badge-${index}`}
                     >
-                      AI + HH Verified
+                      RU-first AI
                     </span>
                   </label>
                 ))}

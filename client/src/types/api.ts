@@ -1,6 +1,22 @@
 export interface AIKeywordsResponse {
-  aiTitles: string[];
-  suggestionsTop10: Array<{
+  // New Russian-first structure
+  exactPhrases: { text: string; source: 'hh'; isEnglish?: boolean }[];
+  strongSynonyms: { text: string; source: 'hh'; isEnglish?: boolean }[];
+  weakAmbiguous: { text: string; source: 'hh'; isEnglish?: boolean }[];
+  aiSeeds?: {
+    exactPhrases: string[];
+    strongSynonyms: string[];
+    weakAmbiguous: string[];
+    allowedEnglishAcronyms: string[];
+  };
+  languageStats: {
+    totalSuggestions: number;
+    russianCount: number;
+    englishCount: number;
+  };
+  // Legacy fields (for backward compatibility)
+  aiTitles?: string[];
+  suggestionsTop10?: Array<{
     text: string;
     source: 'hh';
   }>;

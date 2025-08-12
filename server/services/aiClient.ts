@@ -13,52 +13,80 @@ export class AIClient {
   private model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   private proModel = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
-  async generateJobTitles(userInput: string): Promise<string[]> {
+  async generateRussianSeedTerms(userInput: string): Promise<{
+    exactPhrases: string[];
+    strongSynonyms: string[];
+    weakAmbiguous: string[];
+    allowedEnglishAcronyms: string[];
+  }> {
     const prompt = `
-You are a job search specialist. Based on the user query "${userInput}", 
-generate 8-12 related job titles in English and Russian that are commonly used on HH.ru.
+Ты специалист по поиску работы на HH.ru. На основе запроса пользователя "${userInput}", 
+создай компактный список русских терминов для поиска вакансий, плюс несколько разрешённых английских технических аббревиатур.
 
-Requirements:
-- Job titles should be real and used in the job market
-- Include synonyms, related specialties and levels (junior/middle/senior)
-- Mix English and Russian job titles as they appear on HH.ru
-- Each title on a new line
+Требования:
+- В основном русские термины (≥90%)
+- Английские только для стандартных технических аббревиатур: SQL, JS, TS, React, Node.js, Docker, AWS, GCP, ML, NLP, etc.
+- НЕ используй общие английские названия должностей, используй русские эквиваленты
+- Краткие термины/фразы, без длинных предложений
+- Всего под 20 пунктов
 
-Example for "data scientist":
-Data Scientist
-Аналитик данных
-Специалист по данным
-Machine Learning Engineer
-ML Engineer
-Senior Data Scientist
-Junior Data Scientist
-Аналитик машинного обучения
-`;
+Категории (выдавай в формате JSON):
+{
+  "exactPhrases": ["точная профессия 1", "точная профессия 2"],
+  "strongSynonyms": ["сильный синоним 1", "сильный синоним 2"], 
+  "weakAmbiguous": ["слабый/неоднозначный 1"],
+  "allowedEnglishAcronyms": ["SQL", "React"]
+}
+
+Примеры разрешённых английских терминов: SQL, JavaScript, TypeScript, React, Node.js, Docker, Kubernetes, AWS, GCP, ML, NLP, ETL
+Примеры НЕ разрешённых (используй русские): "software engineer" → "инженер-программист", "frontend developer" → "фронтенд-разработчик"
+
+Только JSON, без объяснений.`;
 
     try {
       const result = await this.model.generateContent(prompt);
-      const response = result.response.text();
+      const response = result.response.text().trim();
       
-      const titles = response
-        .split('\n')
-        .map(title => title.trim())
-        .filter(title => {
-          // Filter out descriptive text and keep only job titles
-          return title.length > 0 && 
-                 !title.toLowerCase().includes('here are') &&
-                 !title.toLowerCase().includes('related job') &&
-                 !title.toLowerCase().includes('commonly used') &&
-                 !title.startsWith('Пример') &&
-                 !title.includes(':') &&
-                 !title.toLowerCase().includes('example');
-        })
-        .slice(0, 12);
-
-      return titles;
+      // Extract JSON from response
+      let jsonText = response;
+      if (response.includes('```json')) {
+        jsonText = response.split('```json')[1].split('```')[0].trim();
+      } else if (response.includes('```')) {
+        jsonText = response.split('```')[1].split('```')[0].trim();
+      }
+      
+      const parsed = JSON.parse(jsonText);
+      
+      // Validate structure and clean data
+      const result_data = {
+        exactPhrases: (parsed.exactPhrases || []).slice(0, 8),
+        strongSynonyms: (parsed.strongSynonyms || []).slice(0, 8),
+        weakAmbiguous: (parsed.weakAmbiguous || []).slice(0, 5),
+        allowedEnglishAcronyms: (parsed.allowedEnglishAcronyms || []).slice(0, 5)
+      };
+      
+      return result_data;
     } catch (error) {
-      console.error('AI title generation failed:', error);
-      return [userInput]; // Fallback to user input
+      console.error('AI Russian seed generation failed:', error);
+      // Fallback to basic structure with user input
+      return {
+        exactPhrases: [userInput],
+        strongSynonyms: [],
+        weakAmbiguous: [],
+        allowedEnglishAcronyms: []
+      };
     }
+  }
+
+  // Keep the legacy method for backward compatibility (deprecated)
+  async generateJobTitles(userInput: string): Promise<string[]> {
+    const seeds = await this.generateRussianSeedTerms(userInput);
+    return [
+      ...seeds.exactPhrases,
+      ...seeds.strongSynonyms,
+      ...seeds.weakAmbiguous,
+      ...seeds.allowedEnglishAcronyms
+    ];
   }
 
   async mapFiltersToHH(
