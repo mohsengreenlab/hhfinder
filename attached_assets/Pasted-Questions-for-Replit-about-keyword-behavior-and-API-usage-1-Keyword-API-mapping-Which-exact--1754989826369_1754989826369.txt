@@ -1,0 +1,54 @@
+Questions for Replit about keyword behavior and API usage
+1) Keyword → API mapping
+
+    Which exact HH.ru API endpoint(s) does Step 4’s job search use after I pick keywords in Step 2?
+
+    Are the selected keywords passed to the API as:
+
+        A text parameter (full-text search)?
+
+        A list of keyword IDs from HH.ru’s /suggests/vacancy_search_keyword endpoint?
+
+        Another parameter (like search_field, specialization, etc.)?
+
+    Are these keywords searched only in the job title, or also in job descriptions, skills, employer names, etc.?
+
+    Does the API treat them as AND (all keywords must match) or OR (any keyword match) logic?
+
+2) AI suggestion verification step
+
+    When the AI generates keywords in Step 1, you mentioned they are “verified through HH.ru’s API” — how exactly is this verification done?
+
+    Does the app store the keyword ID returned from HH.ru, or just the text string?
+
+    If I manually select/deselect keywords, does that change the IDs or only the text sent to HH.ru?
+
+3) Search field scope
+
+    Are there specific search fields being passed (e.g., name, description, company_name, skills) in the API request?
+
+    If so, are all fields enabled, or only some?
+
+    Can we configure which fields to search in?
+
+4) Filter interaction
+
+    Do Step 3 filters (education level, work format, etc.) narrow down the results from the keyword search, or do they apply independently?
+
+    Is there a default set of filters even when all checkboxes are off?
+
+5) Caching and refresh
+
+    Is there any local or server-side caching that might show me stale results after keyword changes?
+
+    When I change keywords, does the app always trigger a fresh API call to HH.ru, or does it sometimes reuse cached data?
+
+6) Testing the actual request
+
+    Can you show me a real example of the final request URL and payload that’s sent to HH.ru after I:
+
+        Select a certain set of keywords in Step 2
+
+        Apply certain filters in Step 3
+
+        Click “Next” to go to Step 4?
