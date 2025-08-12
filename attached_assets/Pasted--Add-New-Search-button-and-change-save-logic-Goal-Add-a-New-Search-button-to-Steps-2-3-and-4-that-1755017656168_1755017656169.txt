@@ -1,0 +1,164 @@
+ Add New Search button and change save logic
+Goal
+
+Add a New Search button to Steps 2, 3, and 4 that resets the whole wizard to a clean state. A search/process should only be saved once Step 4 (vacancy viewer) is reached. No saving is allowed on Steps 2–3. Starting a New Search always means a fresh start with no cached results or stale filters.
+Why (bug context)
+
+Right now, when users change keywords (Step 2) or filters (Step 3), Step 4 does not refresh properly and shows stale results. The New Search flow must guarantee a clean state so Step 4 always loads fresh data.
+Requirements (simple and strict)
+
+    UI
+
+        Add a New Search button (ghost/secondary) to the headers of:
+
+            Step 2 (Keyword confirmation)
+
+            Step 3 (Filters)
+
+            Step 4 (Vacancy viewer)
+
+        On mobile and desktop, keep it visible and consistent. Place it on the right side of the step header near the auto-save indicator (if present).
+
+    Behavior
+
+        Clicking New Search:
+
+            Shows a confirm dialog:
+            “Start a new search? Your current progress on this search will be cleared. Nothing is saved until you reach Step 4.”
+
+            If confirmed, perform a full reset (see Reset Spec below) and navigate to Step 1 (or the first screen of Step 2 if that’s our actual start).
+
+        No saving on Steps 2–3. Auto-save must be disabled/blocked before Step 4.
+
+        Saving is allowed only once the user first lands on Step 4 (or after). From that moment, auto-save works like today.
+
+        When a user changes keywords/filters in Steps 2–3 and then proceeds to Step 4, Step 4 must fetch fresh results with the current parameters (no reuse of old results).
+
+    Reset Spec (fresh start means truly clean)
+
+        Zustand wizard store: call a new action like resetSearch() that:
+
+            Clears keywords, keyword expansions, negative keywords, AND/OR toggles, exact phrase toggles, etc.
+
+            Clears all filter states (education/work formats/labels/areas/metro/etc.).
+
+            Resets pagination/current vacancy index and any Step 4 viewer state (generated letter, prompt text, scroll positions).
+
+            Resets any debug mode counters/flags tied to the current search.
+
+        React Query (TanStack): invalidate and remove all HH search queries related to the current search key (title/description/skills tiers), vacancy details, and counts.
+
+        LocalStorage: remove any per-search cached items (wizard persistence, toggles, last viewed vacancy position, expansion previews). Keep global user settings if they are not search-specific.
+
+        Session/server cache: clear any server-side cache entries keyed to this search, if present.
+
+        UI indicators: after reset, auto-save indicator should show “Not saving yet” or be hidden until Step 4.
+
+    Auto-save policy change
+
+        Move/guard all auto-save triggers so they only run when currentStep >= 4.
+
+            Examples to update:
+
+                “keyword confirmation” save trigger → only mark in local state; do not persist to DB until Step 4.
+
+                “filter changes” save trigger → local only until Step 4.
+
+                “vacancy navigation” save trigger → persists (we are in Step 4).
+
+        If we already persisted a search (user reached Step 4), and the user taps New Search, create a new, separate search record only after the user reaches Step 4 again. Do not overwrite the old one.
+
+    Data integrity
+
+        Backend: reject/ignore create/update requests for applications whose step < 4. Return 400 with a clear message, or silently no-op and return 200 with "ignoredBeforeStep4": true. Choose one approach and keep it consistent.
+
+        Frontend: display a friendly toast if the server rejects a save before Step 4:
+        “We only save once you reach Step 4. Keep going!”
+
+    Navigation
+
+        After New Search reset → navigate to Step 1/2 start.
+
+        Proceeding to Step 4 from Steps 2–3 must re-query HH.ru with the current keywords/filters and rebuild tiered results (Title → Description → Skills), with dedupe and scoring.
+
+    Security & keys
+
+        Keep Gemini and DB key handling exactly as is (server-only). Reset must not leak or log keys.
+
+Technical notes (where to hook things)
+
+    Zustand store
+
+        Add resetSearch() and markReachedStep4() actions.
+
+        Add a boolean hasReachedStep4 to guard all persistence effects.
+
+    Auto-save effects
+
+        Wrap existing effects with if (state.hasReachedStep4) { persist(...) }.
+
+        Ensure Step 2/3 effects only update local store and UI indicators.
+
+    React Query
+
+        Create a helper clearSearchQueries(searchId?) that cancels, invalidates, and removes queries for:
+
+            hh.search.title, hh.search.description, hh.search.skills
+
+            hh.vacancy.details.*
+
+            any merged/paginated result query keys
+
+    LocalStorage keys
+
+        Names likely include wizard toggles and last vacancy index. Clear them in one place during resetSearch().
+
+    Step 4 loading
+
+        On first mount after Step 3 → compute final keyword list (including expansions), build query keys, and fetch Tier 1 → Tier 2 → Tier 3 as today. Show “Building fresh results…” message.
+
+    UI text
+
+        Button label: “New Search”
+
+        Confirm dialog: see above
+
+        Pre-Step-4 badge/tooltip near save indicator: “Not saved yet. We save once you reach Step 4.”
+
+Acceptance criteria (must all pass)
+
+    Visibility: “New Search” button appears on Steps 2, 3, and 4 (desktop+mobile).
+
+    Reset: Clicking it, confirming, and returning to Step 4 later produces different/fresh results when keywords/filters changed. No stale cards.
+
+    No save before Step 4: DB shows no new/updated application rows if the user never reaches Step 4.
+
+    Save at Step 4: The moment the user enters Step 4, a new application is created (or existing continued). Auto-save works on vacancy navigation.
+
+    Isolation: Starting a New Search does not overwrite any previously saved Step-4 searches; a brand-new record is created only after reaching Step 4 again.
+
+    Indicators: Save indicator stays idle before Step 4 and becomes active at Step 4.
+
+    Back-and-forth: Changing Step 2/3 and going forward updates Step 4 with fresh HH.ru queries (Title→Description→Skills pipeline rebuilt).
+
+    Debug: Debug panel counts, excluded numbers, and final keyword lists reflect the new parameters after a New Search or after moving from 2/3→4.
+
+Test cases
+
+    TC1: Change keywords on Step 2, go to Step 4 → results reflect new keywords, old results are gone.
+
+    TC2: Change filters on Step 3 (e.g., add exclude words) → Step 4 shows new totals and correct excluded counts.
+
+    TC3: Click New Search on Step 4, confirm, change keywords, proceed to Step 4 → DB shows a new application only after hitting Step 4; previous application remains untouched.
+
+    TC4: Never go to Step 4 → no DB writes happen.
+
+    TC5: Auto-save indicator: “Not saved yet” on Steps 2–3; active on Step 4.
+
+    TC6: With AND→OR fallback: after New Search the fallback message recomputes based on the new result totals.
+
+Nice to have (if quick)
+
+    Toast after reset: “Started a new search. Set your keywords to continue.”
+
+    Short help tooltip on New Search (i icon).
