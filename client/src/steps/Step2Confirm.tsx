@@ -33,6 +33,7 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
     setFilters,
     addCustomKeyword,
     removeKeyword,
+    commitKeywords,
     updateSearchSignature,
     goBack, 
     goNext 
@@ -362,7 +363,11 @@ export default function Step2Confirm({ onBackToDashboard }: Step2ConfirmProps) {
             </Button>
             <Button
               type="button"
-              onClick={goNext}
+              onClick={() => {
+                // Commit keywords before navigation
+                commitKeywords();
+                goNext();
+              }}
               disabled={!canContinue}
               className="flex-1 bg-primary-600 text-white py-3 px-6 rounded-xl font-semibold 
                          hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed 

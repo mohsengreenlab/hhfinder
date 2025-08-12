@@ -1,0 +1,85 @@
+Step 4 still shows old results after changing keywords on Step 2
+
+Repro (fresh search):
+
+    Step 2: change selected keywords
+
+    Step 3: (any filters) → Step 4
+
+    Step 4 shows previous results
+
+What to fix (very specific):
+
+    Single source of truth for keywords
+
+        Audit Step 2 state: do we have both pendingKeywords and selectedKeywords / confirmedKeywords?
+
+        Ensure there is one canonical field (e.g., selectedKeywordsCanonical) used by:
+
+            searchSignature
+
+            the Step 4 query builder
+
+            auto-save
+
+    Commit on navigation (Step 2 → Step 3, Step 3 → Step 4)
+
+        In the Continue handler on Step 2:
+
+            Normalize & commit the keywords to the canonical field (trim, lowercase, dedupe, stable sort)
+
+            Call updateSearchSignature() after committing
+
+            Reset/clamp index to 0 only if it actually changes
+
+            Then navigate to Step 3
+
+        In the Continue handler on Step 3:
+
+            Commit filters → updateSearchSignature() → reset/clamp index if needed → then navigate to Step 4
+
+        (Zustand set is sync, so no async awaits needed; if batching causes timing issues, wrap commit + signature in a single set.)
+
+    Make searchSignature actually use the canonical keywords
+
+        In the signature function, only read selectedKeywordsCanonical (not any “pending/UI” array).
+
+        Log (debug): signatureInputs.keywords, computedSignature.
+
+    Key all Step 4 data by signature
+
+        useQuery key must be ['vacancies', applicationId, searchSignature] (no objects in the key).
+
+        Any local Step 4 state that caches results/totals must be cleared when searchSignature changes (or stored in a map keyed by signature).
+
+        On signature change, do not keep placeholderData from the old signature.
+
+    Guard Step 4 effect
+
+        If sigRef.current === searchSignature → return (no work).
+
+        Else: clear local results for the old signature, clamp index (only if changed), invalidate/fetch for the new key, then sigRef.current = searchSignature.
+
+        Step 4 must not write to any field used by searchSignature.
+
+    Tiny debug snapshot (please paste as text):
+
+        On Step 2 before clicking Continue:
+
+            pendingKeywords, selectedKeywordsCanonical, searchSignature
+
+        Immediately after arriving at Step 4:
+
+            selectedKeywordsCanonical, searchSignature, queryKey, first vacancy title, totals
+
+        Then, change one keyword on Step 2 and repeat: confirm selectedKeywordsCanonical and searchSignature both change.
+
+Acceptance:
+
+    Change one keyword on Step 2 → Step 3 → Step 4 shows new totals and a different first vacancy.
+
+    The debug snapshot shows selectedKeywordsCanonical and searchSignature changed before Step 4 mounted.
+
+    Reordering/case/whitespace doesn’t change the signature (no unnecessary refetch).
+
+    tsc --noEmit still clean.

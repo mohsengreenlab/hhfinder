@@ -65,7 +65,8 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
     return <div>Step 4 minimal</div>;
   }
   const { 
-    selectedKeywords, 
+    selectedKeywords,
+    selectedKeywordsCanonical, 
     filters, 
     searchResults, 
     currentVacancyIndex, 
@@ -257,7 +258,7 @@ ${jobInfo.description}`;
     queryKey: ['/api/filters/match'],
     queryFn: async () => {
       const filterRequest: FilterMatchRequest = {
-        selectedKeywords: selectedKeywords.map(k => k.text),
+        selectedKeywords: selectedKeywordsCanonical.map(k => k.text),
         
         // Filter enablement flags
         enableLocationFilter: filters.enableLocationFilter,
@@ -421,7 +422,7 @@ ${jobInfo.description}`;
       const tierResults: { tier: string; items: any[]; count: number; url: string }[] = [];
 
       // Apply AND vs OR logic for multiple keywords
-      const keywordTexts = selectedKeywords.map(k => k.text);
+      const keywordTexts = selectedKeywordsCanonical.map(k => k.text);
       const useAnd = filters.useAndAcrossPhrases && keywordTexts.length > 1;
       
       // Prepare exclude words for hard filtering

@@ -17,7 +17,7 @@ let patchCount = 0;
 // Function to generate stable save signature
 function generateSaveSignature(state: any): string {
   const saveData = {
-    keywords: state.selectedKeywords
+    keywords: (state.selectedKeywordsCanonical || state.selectedKeywords)
       .map((k: any) => k.text.trim().toLowerCase())
       .sort(),
     filters: {
@@ -128,6 +128,7 @@ export interface WizardState {
   // Step 2 data
   aiSuggestions: Array<{ text: string; source: 'hh' }>;
   selectedKeywords: SelectedKeyword[];
+  selectedKeywordsCanonical: SelectedKeyword[]; // Single source of truth for search
   
   // Step 3 data
   filters: WizardFilters;
@@ -162,6 +163,7 @@ export interface WizardState {
   setAISuggestions: (suggestions: Array<{ text: string; source: 'hh' }>) => void;
   setSuggestedKeywords: (keywords: string[]) => void;
   setSelectedKeywords: (keywords: SelectedKeyword[]) => void;
+  commitKeywords: () => void; // Commit to canonical
   addCustomKeyword: (text: string) => void;
   removeKeyword: (index: number) => void;
   setFilters: (filters: Partial<WizardFilters> | Record<string, any>) => void;
@@ -252,6 +254,7 @@ export const useWizardStore = create<WizardState>()(
       userInput: '',
       aiSuggestions: [],
       selectedKeywords: [],
+      selectedKeywordsCanonical: [],
       filters: defaultFilters,
       searchResults: [],
       currentVacancyIndex: 0,
@@ -309,6 +312,32 @@ export const useWizardStore = create<WizardState>()(
         const state = get();
         const newSignature = generateSaveSignature({ ...state, selectedKeywords: keywords });
         set({ saveSignature: newSignature });
+      },
+      
+      // Commit keywords to canonical source (called on navigation Step 2 -> Step 3)
+      commitKeywords: () => {
+        const { selectedKeywords } = get();
+        
+        // Normalize keywords: trim, dedupe, stable sort
+        const normalizedKeywords = selectedKeywords
+          .map(k => ({ ...k, text: k.text.trim() }))
+          .filter(k => k.text.length > 0)
+          .filter((k, index, arr) => arr.findIndex(x => x.text.toLowerCase() === k.text.toLowerCase()) === index)
+          .sort((a, b) => a.text.toLowerCase().localeCompare(b.text.toLowerCase()));
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Store: commitKeywords(${normalizedKeywords.length} canonical keywords)`);
+        }
+        
+        set({ 
+          selectedKeywordsCanonical: normalizedKeywords,
+          currentVacancyIndex: 0 // Reset index when keywords change
+        });
+        
+        // Update search signature after committing
+        const newSignature = get().updateSearchSignature();
+        
+        return normalizedKeywords;
       },
       
       addCustomKeyword: (text) => {
@@ -587,11 +616,11 @@ export const useWizardStore = create<WizardState>()(
       
       // Generate search signature from current state
       generateSearchSignature: () => {
-        const { selectedKeywords, filters } = get();
+        const { selectedKeywordsCanonical, filters } = get();
         
         // Create a normalized object with all search-affecting parameters
         const searchParams = {
-          keywords: selectedKeywords
+          keywords: selectedKeywordsCanonical
             .map(k => k.text.toLowerCase().trim())
             .sort(), // Sort for consistent ordering
           excludeWords: filters.excludeWords?.toLowerCase().trim().split(/\s+/).filter(Boolean).sort() || [],

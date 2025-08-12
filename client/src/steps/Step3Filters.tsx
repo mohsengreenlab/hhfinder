@@ -88,7 +88,9 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
   };
 
   const handleSubmit = () => {
+    // Commit filters and update search signature before navigation
     setFilters(localFilters);
+    updateSearchSignature();
     goNext();
   };
 
