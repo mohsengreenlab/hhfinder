@@ -1,5 +1,66 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, subscribeWithSelector } from 'zustand/middleware';
+
+// Feature flag to disable auto-save for debugging
+const AUTO_SAVE_ENABLED = false; // Set to false to test if auto-save is causing the loop
+
+// External refs to prevent auto-save state from triggering re-renders
+let inFlightRef = false;
+let lastSavedHashRef = '';
+let debounceTimeoutRef: number | null = null;
+
+// Counters for debugging
+let saveSignatureChanges = 0;
+let autoSaveCalls = 0;
+let patchCount = 0;
+
+// Function to generate stable save signature
+function generateSaveSignature(state: any): string {
+  const saveData = {
+    keywords: state.selectedKeywords
+      .map((k: any) => k.text.trim().toLowerCase())
+      .sort(),
+    filters: {
+      // Only include filter values that affect search results
+      enableLocationFilter: state.filters.enableLocationFilter,
+      enableExperienceFilter: state.filters.enableExperienceFilter,
+      enableEmploymentFilter: state.filters.enableEmploymentFilter,
+      enableScheduleFilter: state.filters.enableScheduleFilter,
+      enableSalaryFilter: state.filters.enableSalaryFilter,
+      enableMetroFilter: state.filters.enableMetroFilter,
+      enableLabelFilter: state.filters.enableLabelFilter,
+      enableEducationFilter: state.filters.enableEducationFilter,
+      enableWorkFormatFilter: state.filters.enableWorkFormatFilter,
+      
+      locationText: state.filters.locationText.trim().toLowerCase(),
+      remoteOnly: state.filters.remoteOnly,
+      hybridOk: state.filters.hybridOk,
+      experience: state.filters.experience,
+      employmentTypes: [...state.filters.employmentTypes].sort(),
+      scheduleTypes: [...state.filters.scheduleTypes].sort(),
+      salary: state.filters.salary,
+      currency: state.filters.currency,
+      onlyWithSalary: state.filters.onlyWithSalary,
+      period: state.filters.period,
+      orderBy: state.filters.orderBy,
+      metroStation: state.filters.metroStation.trim().toLowerCase(),
+      searchFields: [...state.filters.searchFields].sort(),
+      vacancyLabels: [...state.filters.vacancyLabels].sort(),
+      employerName: state.filters.employerName.trim().toLowerCase(),
+      educationLevel: state.filters.educationLevel,
+      workFormats: [...state.filters.workFormats].sort(),
+      titleFirstSearch: state.filters.titleFirstSearch,
+      useExactPhrases: state.filters.useExactPhrases,
+      useAndAcrossPhrases: state.filters.useAndAcrossPhrases,
+      useCompanyFallback: state.filters.useCompanyFallback,
+      excludeWords: state.filters.excludeWords.trim().toLowerCase()
+    },
+    currentStep: state.currentStep,
+    currentVacancyIndex: state.currentVacancyIndex
+  };
+  
+  return JSON.stringify(saveData);
+}
 
 export type WizardStep = 'keywords' | 'confirm' | 'filters' | 'results';
 
@@ -77,10 +138,8 @@ export interface WizardState {
   totalFound: number;
   appliedVacancyIds: string[];
   
-  // Auto-save state
+  // Auto-save state (external refs prevent re-render loops)
   currentApplicationId: number | null;
-  isSaving: boolean;
-  lastSavedAt: Date | null;
   
   // Change tracking for live sync
   lastSearchKeywords: SelectedKeyword[];
@@ -90,6 +149,9 @@ export interface WizardState {
   // Search signature for cache invalidation
   currentSearchSignature: string;
   lastLoadedSignature: string;
+  
+  // Save signature for auto-save (watched by subscribeWithSelector)
+  saveSignature: string;
   
   // Actions
   setStep: (step: WizardStep) => void;
@@ -177,8 +239,9 @@ const defaultFilters: WizardFilters = {
 };
 
 export const useWizardStore = create<WizardState>()(
-  persist(
-    (set, get) => ({
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
       // Initial state
       currentStep: 'keywords',
       isTransitioning: false,
@@ -195,8 +258,6 @@ export const useWizardStore = create<WizardState>()(
       
       // Auto-save state
       currentApplicationId: null,
-      isSaving: false,
-      lastSavedAt: null,
       
       // Change tracking for live sync
       lastSearchKeywords: [],
@@ -206,6 +267,9 @@ export const useWizardStore = create<WizardState>()(
       // Search signature tracking
       currentSearchSignature: '',
       lastLoadedSignature: '',
+      
+      // Save signature for auto-save (watched by subscribeWithSelector)
+      saveSignature: '',
 
       // Actions
       setStep: (step) => set({ currentStep: step }),
@@ -234,8 +298,10 @@ export const useWizardStore = create<WizardState>()(
           selectedKeywords: keywords,
           searchNeedsRefresh: JSON.stringify(keywords) !== JSON.stringify(lastSearchKeywords)
         });
-        // Auto-save when keywords are confirmed
-        setTimeout(() => get().autoSave(), 1000);
+        // Update save signature to trigger centralized auto-save
+        const state = get();
+        const newSignature = generateSaveSignature({ ...state, selectedKeywords: keywords });
+        set({ saveSignature: newSignature });
       },
       
       addCustomKeyword: (text) => {
@@ -279,8 +345,10 @@ export const useWizardStore = create<WizardState>()(
           filters: updatedFilters,
           searchNeedsRefresh: JSON.stringify(updatedFilters) !== JSON.stringify(lastSearchFilters)
         });
-        // Auto-save when filters are updated
-        setTimeout(() => get().autoSave(), 1000);
+        // Update save signature to trigger centralized auto-save
+        const newState = get();
+        const newSignature = generateSaveSignature(newState);
+        set({ saveSignature: newSignature });
       },
       
       setVacancies: (vacancies) => set({ searchResults: vacancies }),
@@ -291,40 +359,50 @@ export const useWizardStore = create<WizardState>()(
           totalFound,
           currentVacancyIndex: 0
         });
-        // Only auto-save search results if we have meaningful data and aren't already saving
+        // Update save signature to trigger centralized auto-save
         const state = get();
-        if (results.length > 0 && state.selectedKeywords.length > 0 && !state.isSaving) {
-          setTimeout(() => get().autoSave(), 1500);
-        }
+        const newSignature = generateSaveSignature({ ...state, searchResults: results, totalFound, currentVacancyIndex: 0 });
+        set({ saveSignature: newSignature });
       },
       
       setCurrentVacancyIndex: (index) => {
         set({ currentVacancyIndex: index });
-        // Only auto-save on navigation if we have meaningful data and aren't already saving
+        // Update save signature to trigger centralized auto-save
         const state = get();
-        if (state.selectedKeywords.length > 0 && !state.isSaving) {
-          setTimeout(() => get().autoSave(), 1000);
-        }
+        const newSignature = generateSaveSignature({ ...state, currentVacancyIndex: index });
+        set({ saveSignature: newSignature });
       },
       
-      // Auto-save actions
+      // Auto-save actions (now using external refs for safety)
       autoSave: async () => {
+        if (!AUTO_SAVE_ENABLED) return;
+        
         const state = get();
         
-        // Don't auto-save if on keywords step, no meaningful data, or already saving
-        if (state.currentStep === 'keywords' || 
-            state.selectedKeywords.length === 0 || 
-            state.isSaving) {
+        // Don't auto-save if on keywords step or no meaningful data
+        if (state.currentStep === 'keywords' || state.selectedKeywords.length === 0) {
           return;
         }
         
-        // Use a flag to prevent concurrent saves
-        const setState = (updates: any) => {
-          // Batch all state updates at once to prevent triggering loops
-          set(updates);
-        };
+        // Check for concurrent saves using external ref
+        if (inFlightRef) {
+          // Schedule trailing run for coalescing
+          if (debounceTimeoutRef) {
+            clearTimeout(debounceTimeoutRef);
+          }
+          debounceTimeoutRef = setTimeout(() => get().autoSave(), 1000);
+          return;
+        }
         
-        setState({ isSaving: true });
+        // Generate current hash and check if we need to save
+        const currentHash = generateSaveSignature(state);
+        if (currentHash === lastSavedHashRef) {
+          return; // No changes to save
+        }
+        
+        // Mark as in-flight
+        inFlightRef = true;
+        autoSaveCalls++;
         
         try {
           const keywords = state.selectedKeywords.map(k => k.text).filter(Boolean);
@@ -371,33 +449,37 @@ export const useWizardStore = create<WizardState>()(
           
           if (response.ok) {
             const savedApp = await response.json();
-            // Batch all final state updates to prevent loops
-            setState({ 
-              currentApplicationId: savedApp.id,
-              lastSavedAt: new Date(),
-              isSaving: false
-            });
-          } else {
-            setState({ isSaving: false });
+            patchCount++;
+            
+            // Update external refs only (no store updates that trigger subscriptions)
+            lastSavedHashRef = currentHash;
+            
+            // Only update currentApplicationId if it changed
+            if (savedApp.id !== state.currentApplicationId) {
+              set({ currentApplicationId: savedApp.id });
+            }
+            
+            console.log(`Auto-save successful: saveSignatureChanges=${saveSignatureChanges}, autoSaveCalls=${autoSaveCalls}, PATCHes=${patchCount}`);
           }
         } catch (error) {
           console.error('Auto-save failed:', error);
-          setState({ isSaving: false });
+        } finally {
+          inFlightRef = false;
         }
       },
       
       setCurrentApplicationId: (id) => set({ currentApplicationId: id }),
       
       markVacancyAsApplied: (vacancyId) => {
-        const { appliedVacancyIds, isSaving } = get();
+        const { appliedVacancyIds } = get();
         if (!appliedVacancyIds.includes(vacancyId)) {
           set({ 
             appliedVacancyIds: [...appliedVacancyIds, vacancyId] 
           });
-          // Auto-save when marking vacancy as applied (only if not already saving)
-          if (!isSaving) {
-            setTimeout(() => get().autoSave(), 1000);
-          }
+          // Update save signature to trigger centralized auto-save
+          const state = get();
+          const newSignature = generateSaveSignature(state);
+          set({ saveSignature: newSignature });
         }
       },
       
@@ -589,13 +671,12 @@ export const useWizardStore = create<WizardState>()(
           totalFound: 0,
           appliedVacancyIds: [],
           currentApplicationId: null,
-          isSaving: false,
-          lastSavedAt: null,
           lastSearchKeywords: [],
           lastSearchFilters: { ...defaultFilters },
           searchNeedsRefresh: false,
           currentSearchSignature: '',
-          lastLoadedSignature: ''
+          lastLoadedSignature: '',
+          saveSignature: ''
         });
       }
     }),
@@ -604,8 +685,49 @@ export const useWizardStore = create<WizardState>()(
       partialize: (state) => ({
         userInput: state.userInput,
         selectedKeywords: state.selectedKeywords,
-        filters: state.filters
+        filters: state.filters,
+        currentStep: state.currentStep,
+        currentApplicationId: state.currentApplicationId,
+        currentVacancyIndex: state.currentVacancyIndex,
+        totalFound: state.totalFound,
+        appliedVacancyIds: state.appliedVacancyIds,
+        currentSearchSignature: state.currentSearchSignature,
+        saveSignature: state.saveSignature
       })
     }
+    )
   )
 );
+
+// Centralized auto-save subscription (single source of truth)
+if (AUTO_SAVE_ENABLED) {
+  useWizardStore.subscribe(
+    (state) => state.saveSignature,
+    (newSignature, prevSignature) => {
+      if (newSignature && newSignature !== prevSignature) {
+        saveSignatureChanges++;
+        console.log(`Save signature changed #${saveSignatureChanges}: ${prevSignature} -> ${newSignature}`);
+        
+        // Debounced auto-save
+        if (debounceTimeoutRef) {
+          clearTimeout(debounceTimeoutRef);
+        }
+        debounceTimeoutRef = setTimeout(() => {
+          const state = useWizardStore.getState();
+          state.autoSave();
+        }, 600); // 600ms debounce
+      }
+    }
+  );
+}
+
+// Helper functions for debugging
+export function getAutoSaveCounters() {
+  return { saveSignatureChanges, autoSaveCalls, patchCount };
+}
+
+export function resetAutoSaveCounters() {
+  saveSignatureChanges = 0;
+  autoSaveCalls = 0;
+  patchCount = 0;
+}

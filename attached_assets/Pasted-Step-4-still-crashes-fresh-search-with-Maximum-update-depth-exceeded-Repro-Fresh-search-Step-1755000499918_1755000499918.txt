@@ -1,0 +1,64 @@
+Step 4 still crashes (fresh search) with “Maximum update depth exceeded”
+
+Repro: Fresh search → Step 4 → runtime overlay still appears.
+
+Your finding: repeated PATCH /api/applications/:id from auto-save = loop.
+Please do (tight fix plan)
+
+    Kill-switch to confirm root cause
+
+        Add a feature flag AUTO_SAVE_ENABLED (default ON).
+
+        Flip it OFF locally and confirm Step 4 no longer crashes. If it still crashes with auto-save OFF, tell me—that means there’s a second loop.
+
+    Single, safe auto-save trigger (centralized)
+
+        Compute a saveSignature (stable hash) of only the fields we persist (keywords, excludes, filters, tier toggles, current vacancy index if you persist it, etc.).
+
+            Normalize: trim/lowercase; sort arrays; remove UI-only/state like isSaving, lastSavedAt, debug, timestamps.
+
+        Use subscribeWithSelector to watch only saveSignature (not isSaving/lastSavedAt/ids).
+
+        On change, debounce 500–800 ms, then fire autoSave.
+
+    Make autoSave non-reentrant and side-effect safe
+
+        Keep inFlightRef and lastSavedHashRef outside the Zustand store (so saves don’t notify subscribers).
+
+        If inFlightRef is true, coalesce (schedule one trailing run).
+
+        Before sending, if currentHash === lastSavedHashRef, return (no-op).
+
+        On success: set lastSavedHashRef = currentHash.
+
+        Do not update store fields that the subscriber is watching. If you want to show “Saved”, keep lastSavedAtRef outside the store or in a slice that nothing subscribes to; if you must set in store, only set when value changes (deep-equal guard).
+
+    Remove any extra auto-save calls
+
+        Delete autoSave() calls from Step 4 effects, debug panel, and query onSuccess callbacks.
+
+        There should be exactly one auto-save source: the single subscribeWithSelector(saveSignature) pipeline.
+
+    Strict Mode proof
+
+        Ensure effects are idempotent under React 18 Strict Mode (double-invoke).
+
+        No state writes during render anywhere (debug panel included).
+
+Acceptance (paste back as TEXT, not screenshots)
+
+    With AUTO_SAVE_ENABLED=OFF: Step 4 loads fine (no overlay).
+
+    With AUTO_SAVE_ENABLED=ON:
+
+        Counters for one fresh search: saveSignatureChanges=1, autoSaveCalls=1, PATCHes=1.
+
+        Show saveSignature before/after first load, lastSavedHashRef after PATCH.
+
+        Confirm there are no store updates inside autoSave that would affect saveSignature or its dependencies.
+
+(Optional: add two tiny tests)
+
+    Signature stability: reorder keywords / change case/whitespace → same signature.
+
+    Dirty detection: change 1 keyword → signature changes → exactly one debounced save.
