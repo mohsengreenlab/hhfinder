@@ -1,206 +1,73 @@
 # Overview
 
-This is an AI-powered job search application that helps users find vacancies on HH.ru (HeadHunter). The system provides a multi-step wizard interface where users enter job keywords, get AI-generated suggestions verified through HH.ru's API, apply filters, and browse results one-by-one with AI-generated cover letters. The application uses Google's Gemini AI for intelligent keyword suggestions and cover letter generation.
+This AI-powered job search application helps users find vacancies on HH.ru (HeadHunter) through a multi-step wizard. It enables users to input job keywords, receive AI-generated suggestions, apply filters, and browse results one-by-one with AI-generated cover letters. The system aims to simplify the job search process, improve result relevance, and assist users with application materials, leveraging Google's Gemini AI for intelligence and personalization. The project's vision is to provide a streamlined, intelligent job search experience that reduces cognitive overload and enhances the success rate for job seekers.
 
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
 
-# Recent Changes
-
-**Forward-Only Flow Implementation (January 2025):**
-- Enforced strictly forward-only navigation throughout the wizard - no back buttons or backward navigation allowed
-- Removed all "Back" buttons from Steps 2, 3, and 4, replaced with right-aligned "Continue" and "Search Jobs" buttons
-- Implemented browser back button interception with confirmation dialog using useBrowserBackHandler hook
-- Updated all back navigation actions to show "Start a new search?" confirmation with New Search functionality
-- Enhanced empty state and error state messages to guide users toward New Search instead of back navigation
-- Modified server API validation to reject saves before Step 4 is reached (hasReachedStep4 requirement)
-- Updated confirmation dialog copy to: "Your current progress will be cleared. We only save once you reach Step 4."
-- Added Step 4 helper text: "Want different results? Start a New Search to change keywords or filters."
-- Cleaned up unused goBack imports and references throughout the wizard components
-- Created comprehensive browser back handling that preserves user intent while enforcing forward-only flow
-
-**Phase 4: Enhanced Search with Hard Filters and Keyword Expansion (January 2025):**
-- Implemented hard filtering for exclude words - completely removes matching vacancies instead of score penalties
-- Added Gemini-powered keyword expansion with preview and opt-in controls
-- Created smart expansion categories: exact phrases (always on), strong synonyms (default checked), weak/ambiguous (unchecked)
-- Enhanced match badges to show matched phrases with truncation for long lists
-- Added configurable AND/OR fallback threshold (30 results) with user notification
-- Implemented "Sorted: Title → Description → Skills" header with fallback messaging
-- Enhanced debug mode to show excluded counts and final keyword lists
-- Added skills matching using client-side detection from vacancy key_skills data
-- Ensured secure API key handling - server-only storage, never sent to client or logged
-- All Phase 3 features maintained: tiered search, relevance scoring, transparency
-
-**Migration to Replit Environment (January 2025) - COMPLETED:**
-- Successfully migrated from Replit Agent to standard Replit environment
-- All required packages properly installed and configured with tsx runtime
-- Configured Google Gemini API integration with proper environment variable (GEMINI_API_KEY)
-- Server running successfully on port 5000 with Express.js and Vite integration
-- Database connections established with PostgreSQL via Drizzle ORM
-- Authentication system operational with session management
-- Multi-step wizard functionality confirmed working through user testing
-- AI-powered search verified: user successfully searched "Учитель русского языка" with 77 results
-- Tiered search system operational: Title → Description → Skills matching working
-- All core features verified: keyword generation, filter matching, vacancy browsing, cover letter generation
-- Migration completed successfully - application ready for production use
-
-**Authentication and Session Management Addition (January 2025):**
-- Added private, invite-only user authentication system with bcrypt password hashing
-- Created PostgreSQL database with user management, job applications, and session storage
-- Built comprehensive login system with Express session management
-- Created admin panel for user management with create/edit/activate/deactivate capabilities
-- Built user dashboard for managing job search applications with session continuity
-- Added session persistence allowing users to save and resume job searches across sessions
-- Integrated authentication protection across all API endpoints
-- Created initial admin user (username: admin, password: admin123)
-
-**Single Dashboard with Auto-Save (January 2025):**
-- Redesigned dashboard to single "My Applications" section eliminating confusing dual options
-- Implemented comprehensive auto-save functionality that automatically saves job searches during wizard navigation
-- Added visual auto-save indicators in wizard header showing save status and last saved time
-- Enhanced wizard store with automatic saving triggers on keyword confirmation, filter changes, and vacancy navigation
-- Added application deletion feature with confirmation dialog for managing saved searches
-- Created detailed application cards showing progress steps, keywords preview, and last viewed vacancy position
-- All searches are now automatically saved without user intervention and can be resumed exactly where left off
-
-**Unified Cover Letter System (January 2025):**
-- Fixed duplicate Save buttons issue by creating unified ImprovedCoverLetterGenerator component
-- Implemented single "Save your prompt" button replacing confusing dual save interfaces
-- Added comprehensive saved prompts management with database integration
-- Created user settings persistence for remembering last-used prompt preferences
-- Built proper error handling and validation for prompt operations
-- Added ability to load, edit, and delete saved prompts through clean interface
-- Enhanced user experience with clickable placeholder insertion and modern UI design
-- Fixed prompt saving API error by correcting schema validation and request processing
-
-**Enhanced User Experience with Smooth Scrolling and AI Prompt Preview (January 2025):**
-- Added AI prompt preview toggle showing exact text sent to Gemini with all placeholders filled
-- Implemented smooth scrolling when "Generate Cover Letter" button is clicked to auto-scroll to generator panel
-- Added smooth scrolling to generated cover letter results for immediate visibility after AI completion
-- Created smooth scroll-to-top functionality when navigating between vacancies (Next/Previous buttons)
-- Enhanced cover letter generator with copy-to-clipboard functionality for AI prompts
-- Improved overall user experience with gentle, reliable scrolling across desktop and mobile devices
-
-**Phase 2: Tiered Search Implementation (January 2025):**
-- Implemented complete tiered search system showing Title → Description → Skills matches in priority order
-- Built three-tier search using search_field=name, description, and company_name (skills fallback)
-- Created unified pagination over merged results with proper deduplication by vacancy ID
-- Added comprehensive debug panel showing tier-specific counts, URLs, and source identification
-- Enhanced exact phrase search with proper quote wrapping when enabled
-- Integrated with existing auto-save and filter change detection for seamless user experience
-- Maintained backward compatibility with all existing Phase 1 features and filter options
-
-**Phase 3: Enhanced Relevance and Transparency (January 2025):**
-- Implemented enhanced relevance scoring within tiers with multiple tie-breaker criteria (exact phrase at title start +30, contains in title +15, description matches +6, salary presence +4, recency bonuses +2-3)
-- Added negative keywords functionality allowing users to exclude unwanted terms like "intern", "trainee", "junior" with -20 score penalty per exclusion
-- Built AND across phrases logic with automatic fallback to OR when results are insufficient (<30 total), with user notification
-- Created comprehensive match badges system showing "Title match", "Description match", "Skills match" on each vacancy card
-- Added enhanced debug mode displaying relevance scores, matched keywords, match locations, and tier source information
-- Implemented toggle persistence in localStorage for all search strategy options (Title-First, Exact Phrase, AND Across Phrases, Debug Mode, Exclude Words)
-- Built Gemini API connection flow with modal interface explaining AI benefits and secure API key storage for session
-- Enhanced Step3 with consolidated search strategy toggles section and improved user experience
-- Removed hidden geography defaults ensuring transparent location behavior with explicit "All regions" messaging
-- Added comprehensive fallback messaging when AND logic broadens to OR for better user understanding
-
-**Fixed Independent Search Context and State Management (January 2025):**
-- Resolved critical issue where different job searches shared cached data and progress counters
-- Implemented complete state isolation for each search with independent vacancy lists, totals, and progress tracking
-- Added comprehensive cache clearing when starting new searches or switching between saved applications
-- Enhanced reset functionality to clear localStorage and React Query cache for true independence
-- Ensured each "My Applications" card displays accurate search-specific numbers and progress
-- Fixed issue where continuing different searches showed incorrect shared totals and vacancy positions
-
-**Live Search Sync and Page Jump Navigation (January 2025):**
-- Added live sync between Steps 2-4: changes to keywords or filters automatically refresh vacancy results in Step 4
-- Implemented smart change tracking to detect when search parameters have been modified
-- Added comprehensive validation requiring at least one keyword before proceeding to vacancy search
-- Built page jump functionality allowing users to jump directly to any vacancy by number (1-based indexing)
-- Added input validation with friendly error messages for invalid page numbers or out-of-range values
-- Enhanced navigation with Enter key support and smooth scrolling after jumps
-- Integrated auto-save functionality to maintain current position when jumping between vacancies
-- All changes maintain session continuity and auto-save the user's current search progress
-
 # System Architecture
 
 ## Frontend Architecture
-- **Framework**: React with TypeScript using Vite as the build tool
-- **UI Library**: Shadcn/ui components built on Radix UI primitives with Tailwind CSS for styling
-- **State Management**: Zustand for wizard state management with persistence
-- **Data Fetching**: TanStack React Query for server state management and caching
-- **Routing**: Wouter for lightweight client-side routing
-- **Design System**: Uses CSS custom properties for theming with Inter font family
+- **Framework**: React with TypeScript (Vite build tool)
+- **UI Library**: Shadcn/ui components (Radix UI, Tailwind CSS)
+- **State Management**: Zustand (for wizard state with persistence)
+- **Data Fetching**: TanStack React Query (server state management, caching)
+- **Routing**: Wouter (lightweight client-side routing)
+- **Design System**: CSS custom properties for theming, Inter font family.
 
 ## Backend Architecture
 - **Runtime**: Node.js with Express.js server
 - **Language**: TypeScript with ES modules
-- **API Structure**: RESTful endpoints under `/api` namespace
-- **Middleware**: Compression, request logging, and Server-Timing headers for performance monitoring
-- **Error Handling**: Centralized error handling with status code mapping
-- **Development**: Hot module replacement via Vite in development mode
+- **API Structure**: RESTful endpoints under `/api`
+- **Middleware**: Compression, request logging, Server-Timing headers
+- **Error Handling**: Centralized with status code mapping
+- **Development**: Hot module replacement via Vite.
 
 ## Data Storage Solutions
-- **Database**: PostgreSQL configured via Drizzle ORM with Neon Database serverless driver
-- **Schema Management**: Drizzle Kit for migrations and schema management
-- **In-Memory Storage**: Fallback MemStorage class for user data during development
-- **Caching**: Multi-tier LRU cache system with different TTLs:
-  - AI keyword suggestions: 60 seconds
-  - HH.ru dictionaries/areas: 24 hours
-  - Vacancy details: 10 minutes
+- **Database**: PostgreSQL via Drizzle ORM (Neon Database serverless driver)
+- **Schema Management**: Drizzle Kit (migrations)
+- **In-Memory Storage**: Fallback MemStorage class for development
+- **Caching**: Multi-tier LRU cache for AI suggestions (60s), HH.ru dictionaries/areas (24h), vacancy details (10min).
 
 ## Authentication and Authorization
-- **Session Management**: Express sessions with PostgreSQL session store (connect-pg-simple)
-- **User Schema**: Basic user model with id, username fields
-- **Storage Interface**: Abstracted IStorage interface for flexible user data persistence
-
-## External Service Integrations
-
-### HH.ru API Integration
-- **HTTP Client**: Custom HHClient with keep-alive agents for connection pooling
-- **Rate Limiting**: Exponential backoff with jitter for 429 responses
-- **Endpoints**: 
-  - Keyword suggestions (`/suggests/vacancy_search_keyword`)
-  - Area/location data (`/areas`)
-  - Dictionary data (`/dictionaries`) including vacancy labels and search fields
-  - Vacancy search and details with advanced filtering (metro, employer, labels, search fields)
-- **Headers**: Russian locale (`Accept-Language: ru`) and custom User-Agent handling
-
-### Google Gemini AI Integration
-- **Models**: Uses both Gemini 2.5 Flash and Pro models
-- **Use Cases**:
-  - Job title generation from user input
-  - Filter mapping from natural language to HH.ru parameters
-  - Cover letter generation with customizable prompts
-- **Error Handling**: Graceful fallbacks when AI services are unavailable
-
-### Additional Services
-- **HTML Sanitization**: DOMPurify with JSDOM for safe job description rendering
-- **Content Security**: Configurable allowed tags and attributes for job postings
-- **Network Optimization**: Gzip compression and HTTP keep-alive for performance
+- **Session Management**: Express sessions with PostgreSQL store (connect-pg-simple)
+- **User Schema**: Basic user model (id, username)
+- **Storage Interface**: Abstracted IStorage for flexible user data persistence.
 
 ## Key Architectural Decisions
 
 ### Multi-Step Wizard Flow
-- **Problem**: Complex job search with many parameters can overwhelm users
-- **Solution**: Progressive disclosure through a 4-step wizard (keywords → confirmation → filters → results)
-- **Benefits**: Better user experience, reduced cognitive load, ability to refine searches iteratively
+- **Decision**: Implement a 4-step wizard (keywords → confirmation → filters → results) with strictly forward-only navigation.
+- **Benefit**: Reduces cognitive load, provides progressive disclosure, and ensures a guided user journey.
 
-### Optional Filter System with Checkboxes
-- **Problem**: Users sometimes want to see all results without restrictive filters
-- **Solution**: Each filter category has an enable/disable toggle switch, filters are disabled by default
-- **Benefits**: Users can choose to apply only relevant filters, "see all results" mode when no filters enabled
+### Optional Filter System
+- **Decision**: Each filter category has an enable/disable toggle, disabled by default.
+- **Benefit**: Users control filter application, allowing for broad or specific searches.
 
 ### Intelligent Keyword Verification
-- **Problem**: AI-generated job titles may not match actual market terms
-- **Solution**: Char-by-char verification against HH.ru's suggestion API to validate and rank keywords
-- **Benefits**: Higher search relevance, real market-aligned suggestions
+- **Decision**: Character-by-character verification of AI-generated keywords against HH.ru's suggestion API.
+- **Benefit**: Ensures higher search relevance and aligns suggestions with market terms.
 
 ### Aggressive Caching Strategy
-- **Problem**: External API calls can be slow and rate-limited
-- **Solution**: Multi-tier LRU caching with request coalescing to prevent duplicate calls
-- **Benefits**: Improved performance, reduced API costs, better user experience
+- **Decision**: Multi-tier LRU caching with request coalescing for external API calls.
+- **Benefit**: Improves performance, reduces API costs, and enhances user experience by minimizing latency.
 
 ### One-at-a-Time Vacancy Display
-- **Problem**: Job seekers can feel overwhelmed by long lists of vacancies
-- **Solution**: Netflix-style single vacancy viewer with previous/next navigation
-- **Benefits**: Better focus, reduced decision fatigue, improved engagement with individual postings
+- **Decision**: Present vacancies one at a time with previous/next navigation.
+- **Benefit**: Reduces decision fatigue, improves focus on individual postings, and enhances engagement.
+
+### Tiered Search System
+- **Decision**: Implement a three-tier search using HH.ru's search fields (name, description, company_name) with skills as a fallback.
+- **Benefit**: Prioritizes relevance by matching keywords in key fields first.
+
+### Enhanced Relevance Scoring
+- **Decision**: Apply detailed relevance scoring within tiers, including positive and negative keyword penalties, and various tie-breaker criteria.
+- **Benefit**: Provides more accurate and user-preferred vacancy ordering.
+
+# External Dependencies
+
+- **HH.ru API**: For vacancy search, keyword suggestions, area/location data, and dictionary data. Custom HTTP client with rate limiting and specific headers (e.g., `Accept-Language: ru`).
+- **Google Gemini AI**: Uses Gemini 2.5 Flash and Pro models for job title generation, natural language to filter mapping, and customizable cover letter generation.
+- **PostgreSQL**: Primary database for user management, job applications, session storage, and core application data.
+- **DOMPurify with JSDOM**: For HTML sanitization of job description rendering.
