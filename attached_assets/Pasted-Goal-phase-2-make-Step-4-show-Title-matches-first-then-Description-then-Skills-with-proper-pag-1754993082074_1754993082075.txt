@@ -1,0 +1,58 @@
+Goal (phase 2): make Step 4 show Title matches first, then Description, then Skills, with proper pagination over the merged list. Keep Step 2/3 changes auto-refreshing results.
+Please implement:
+
+    Tiered fetch + merge (Title → Description → Skills)
+
+        Tier A: search_field=name
+
+        Tier B: search_field=description
+
+        Tier C: search_field=skills
+
+        Use the same keywords and filters across all tiers.
+
+        De-dupe by vacancy ID and merge in A → B → C order, preserving HH.ru’s intra-tier relevance.
+
+    Unified pagination over merged results
+
+        Build one combined list and paginate after merge.
+
+        Keep the Step 4 “X of Y” + page-jump working on the combined list.
+
+        When keywords/filters change (Step 2 or Step 3), reset/clamp the position and re-run the tiered search.
+
+    Exact phrase toggle (carry-over from phase 1)
+
+        If quotes are supported, keep wrapping phrases. If not, just fall back silently (no user error).
+
+    Debug panel (tiny)
+
+        When debug is ON, show:
+
+            Each tier’s final URL/params,
+
+            Counts per tier and total after de-dupe,
+
+            Which tier the current vacancy came from (A/B/C).
+
+    Caching & perf
+
+        Fetch in pages (e.g., 50–100 per tier) and lazy-load more as the user navigates deeper.
+
+        Invalidate caches on any keyword/filter change (as you already do).
+
+Acceptance
+
+    With the same keywords/filters, Step 4 lists title matches first, then description, then skills—no duplicates.
+
+    “X of Y” and page jump operate on the merged total.
+
+    Changing anything on Step 2 or 3 immediately updates totals and order; position resets/clamps sensibly.
+
+    Debug shows tier URLs, tier counts, and tier label for current item.
+
+Two quick confirmations (please answer)
+
+    Quotes behavior: After your testing, do double quotes enforce exact phrases? If partial, what’s the observed behavior?
+
+    Fallback without Gemini: Confirm the exact current fallback path for keyword suggestions/mapping when GEMINI_API_KEY is missing (which functions run, how keywords are constructed).

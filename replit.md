@@ -56,6 +56,15 @@ Preferred communication style: Simple, everyday language.
 - Enhanced cover letter generator with copy-to-clipboard functionality for AI prompts
 - Improved overall user experience with gentle, reliable scrolling across desktop and mobile devices
 
+**Phase 2: Tiered Search Implementation (January 2025):**
+- Implemented complete tiered search system showing Title → Description → Skills matches in priority order
+- Built three-tier search using search_field=name, description, and company_name (skills fallback)
+- Created unified pagination over merged results with proper deduplication by vacancy ID
+- Added comprehensive debug panel showing tier-specific counts, URLs, and source identification
+- Enhanced exact phrase search with proper quote wrapping when enabled
+- Integrated with existing auto-save and filter change detection for seamless user experience
+- Maintained backward compatibility with all existing Phase 1 features and filter options
+
 **Fixed Independent Search Context and State Management (January 2025):**
 - Resolved critical issue where different job searches shared cached data and progress counters
 - Implemented complete state isolation for each search with independent vacancy lists, totals, and progress tracking

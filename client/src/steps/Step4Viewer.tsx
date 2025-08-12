@@ -294,7 +294,7 @@ ${jobInfo.description}`;
       setSearchResults([], 0);
       setCurrentVacancyIndex(0);
       setCurrentPage(0);
-      queryClient.invalidateQueries({ queryKey: ['/api/vacancies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vacancies/tiered'] });
     }
   }, [searchNeedsRefresh, checkSearchNeedsRefresh, setSearchResults, setCurrentVacancyIndex, queryClient]);
 
@@ -304,53 +304,169 @@ ${jobInfo.description}`;
     setCurrentVacancyIndex(0);
   }, [hhFilters, setCurrentVacancyIndex]);
 
-  // Search vacancies
-  const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery<HHVacanciesResponse>({
-    queryKey: ['/api/vacancies', hhFilters, currentPage],
+  // Tiered search: Title → Description → Skills with merged results
+  const { data: vacanciesData, isLoading: isSearching, error: searchError } = useQuery<{
+    items: any[];
+    found: number;
+    pages: number;
+    page: number;
+    per_page: number;
+    tierInfo?: {
+      titleCount: number;
+      descriptionCount: number;
+      skillsCount: number;
+      totalAfterDedup: number;
+    };
+  }>({
+    queryKey: ['/api/vacancies/tiered', hhFilters, currentPage],
     queryFn: async () => {
       if (!hhFilters) return { items: [], found: 0, pages: 0, page: 0, per_page: 0 };
 
-      const params = new URLSearchParams();
-      Object.entries(hhFilters).forEach(([key, value]) => {
+      // Prepare base parameters
+      const baseParams = { ...hhFilters };
+      delete baseParams.search_field; // Remove any existing search_field
+
+      const per_page = 50; // Fetch 50 per tier
+      const startIndex = currentPage * 50; // Calculate where to start in merged results
+      
+      const tierResults: { tier: string; items: any[]; count: number; url: string }[] = [];
+
+      // Tier A: Title search (search_field=name)
+      const titleParams = new URLSearchParams();
+      Object.entries(baseParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           if (Array.isArray(value)) {
-            value.forEach(v => params.append(key, v.toString()));
+            value.forEach(v => titleParams.append(key, v.toString()));
           } else {
-            params.set(key, value.toString());
+            titleParams.set(key, value.toString());
           }
         }
       });
-      params.set('page', currentPage.toString());
-      params.set('per_page', '100');
+      titleParams.set('search_field', 'name');
+      titleParams.set('page', '0');
+      titleParams.set('per_page', per_page.toString());
 
-      // Add debug parameter if enabled
+      const titleUrl = `/api/vacancies?${titleParams.toString()}`;
       if (filters.enableDebugMode) {
-        params.set('debug', 'true');
+        console.log('🔍 Tier A (Title) URL:', titleUrl);
       }
       
-      const finalUrl = `/api/vacancies?${params.toString()}`;
-      
-      // Debug logging if enabled
-      if (filters.enableDebugMode) {
-        console.log('🔍 HH.ru Search Debug Info:');
-        console.log('Final API URL:', finalUrl);
-        console.log('Search Parameters:', Object.fromEntries(params));
-        console.log('Title-first search:', filters.titleFirstSearch ? 'ENABLED (search_field=name)' : 'DISABLED (all fields)');
-        console.log('Exact phrases:', filters.useExactPhrases ? 'ENABLED (keywords in quotes)' : 'DISABLED (plain text)');
-        console.log('Keywords:', selectedKeywords.map(k => k.text).join(', '));
-        console.log('Enabled filters:', Object.entries(filters)
-          .filter(([key, value]) => key.startsWith('enable') && value)
-          .map(([key]) => key.replace('enable', '').replace('Filter', ''))
-          .join(', ') || 'None');
+      const titleResponse = await fetch(titleUrl);
+      if (titleResponse.ok) {
+        const titleData = await titleResponse.json();
+        tierResults.push({
+          tier: 'Title',
+          items: titleData.items || [],
+          count: titleData.found || 0,
+          url: titleUrl
+        });
       }
 
-      const response = await fetch(finalUrl);
-      
-      if (!response.ok) {
-        throw new Error('Failed to search vacancies');
+      // Tier B: Description search (search_field=description)  
+      const descParams = new URLSearchParams();
+      Object.entries(baseParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (Array.isArray(value)) {
+            value.forEach(v => descParams.append(key, v.toString()));
+          } else {
+            descParams.set(key, value.toString());
+          }
+        }
+      });
+      descParams.set('search_field', 'description');
+      descParams.set('page', '0');
+      descParams.set('per_page', per_page.toString());
+
+      const descUrl = `/api/vacancies?${descParams.toString()}`;
+      if (filters.enableDebugMode) {
+        console.log('🔍 Tier B (Description) URL:', descUrl);
       }
-      
-      return response.json();
+
+      const descResponse = await fetch(descUrl);
+      if (descResponse.ok) {
+        const descData = await descResponse.json();
+        tierResults.push({
+          tier: 'Description',
+          items: descData.items || [],
+          count: descData.found || 0,
+          url: descUrl
+        });
+      }
+
+      // Tier C: Skills search (search_field=skills - fallback to company_name if skills not supported)
+      const skillsParams = new URLSearchParams();
+      Object.entries(baseParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (Array.isArray(value)) {
+            value.forEach(v => skillsParams.append(key, v.toString()));
+          } else {
+            skillsParams.set(key, value.toString());
+          }
+        }
+      });
+      skillsParams.set('search_field', 'company_name'); // Using company_name as skills fallback
+      skillsParams.set('page', '0');
+      skillsParams.set('per_page', per_page.toString());
+
+      const skillsUrl = `/api/vacancies?${skillsParams.toString()}`;
+      if (filters.enableDebugMode) {
+        console.log('🔍 Tier C (Skills/Company) URL:', skillsUrl);
+      }
+
+      const skillsResponse = await fetch(skillsUrl);
+      if (skillsResponse.ok) {
+        const skillsData = await skillsResponse.json();
+        tierResults.push({
+          tier: 'Skills',
+          items: skillsData.items || [],
+          count: skillsData.found || 0,
+          url: skillsUrl
+        });
+      }
+
+      // Merge and deduplicate: A → B → C order
+      const seenIds = new Set<string>();
+      const mergedItems: any[] = [];
+
+      tierResults.forEach(tierResult => {
+        tierResult.items.forEach(item => {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            mergedItems.push({
+              ...item,
+              _tierSource: tierResult.tier // Add tier info for debug
+            });
+          }
+        });
+      });
+
+      // Debug logging
+      if (filters.enableDebugMode) {
+        console.log('🔍 Tiered Search Results:');
+        tierResults.forEach(tier => {
+          console.log(`  ${tier.tier}: ${tier.count} found, ${tier.items.length} fetched`);
+        });
+        console.log(`  Total after dedup: ${mergedItems.length}`);
+        console.log('  Tier URLs:', tierResults.map(t => ({ tier: t.tier, url: t.url })));
+      }
+
+      // Apply pagination to merged results
+      const paginatedItems = mergedItems.slice(startIndex, startIndex + 50);
+      const totalFound = mergedItems.length;
+
+      return {
+        items: paginatedItems,
+        found: totalFound,
+        pages: Math.ceil(totalFound / 50),
+        page: currentPage,
+        per_page: 50,
+        tierInfo: {
+          titleCount: tierResults.find(t => t.tier === 'Title')?.count || 0,
+          descriptionCount: tierResults.find(t => t.tier === 'Description')?.count || 0,
+          skillsCount: tierResults.find(t => t.tier === 'Skills')?.count || 0,
+          totalAfterDedup: totalFound
+        }
+      };
     },
     enabled: !!hhFilters,
     staleTime: 5 * 60 * 1000 // Cache for 5 minutes
@@ -824,6 +940,42 @@ ${jobInfo.description}`;
                   </div>
                 </div>
               </div>
+
+              {/* Enhanced Debug Info Panel (when debug mode is enabled) */}
+              {filters.enableDebugMode && vacanciesData?.tierInfo && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm border-2 border-dashed border-gray-300">
+                  <div className="font-bold text-gray-800 mb-3">🔍 Tiered Search Debug Panel</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="font-medium text-gray-700 mb-2">Search Configuration:</div>
+                      <div className="space-y-1 text-gray-600 text-xs">
+                        <div>Keywords: {selectedKeywords.map(k => k.text).join(', ')}</div>
+                        <div>Exact phrases: {filters.useExactPhrases ? 'ENABLED' : 'DISABLED'}</div>
+                        <div>Title-first: {filters.titleFirstSearch ? 'LEGACY MODE' : 'TIERED MODE'}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700 mb-2">Tier Results:</div>
+                      <div className="space-y-1 text-gray-600 text-xs">
+                        <div>🎯 Title: {vacanciesData.tierInfo.titleCount} found</div>
+                        <div>📄 Description: {vacanciesData.tierInfo.descriptionCount} found</div>
+                        <div>🛠️ Skills: {vacanciesData.tierInfo.skillsCount} found</div>
+                        <div className="font-medium pt-1">📊 Total after dedup: {vacanciesData.tierInfo.totalAfterDedup}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-gray-200">
+                    <div className="text-xs text-gray-600">
+                      Current vacancy: #{currentVacancyIndex + 1} of {totalFound}
+                      {currentVacancy?._tierSource && (
+                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                          Source: {currentVacancy._tierSource} Tier
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Vacancy Description */}
               <div className="mb-8">
