@@ -575,63 +575,36 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
     userProfile?: string;
     customPrompt?: string;
   }): Promise<string> {
-    const systemPrompt = `
-You write concise, polite cover letters in English for real job applicants.
-
-Requirements:
-- 150-220 words
-- 3 short paragraphs
-- Mention 2-4 relevant skills
-- Include 1 specific fact from the job posting
-- No fluff or clichés
-- Professional tone
-`;
-
-    let userPrompt = request.customPrompt || `
-Write a professional cover letter for this job:
-Position: ${request.name}
-Company: ${request.employerName}
-Location: ${request.areaName}
-Key skills: ${request.skillsList.join(', ')}
-
-Job description:
-${request.plainDescription.substring(0, 1000)}
-
-${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
-`;
-
-    // Replace placeholders in custom prompts
-    if (request.customPrompt) {
-      userPrompt = request.customPrompt
-        .replace(/\{\{POSITION\}\}/g, request.name)
-        .replace(/\{\{COMPANY\}\}/g, request.employerName)
-        .replace(/\{\{LOCATION\}\}/g, request.areaName)
-        .replace(/\{\{SKILLS\}\}/g, request.skillsList.join(', '))
-        .replace(/\{\{DESCRIPTION\}\}/g, request.plainDescription.substring(0, 1500));
-    }
-
+    // Use fallback immediately if we know we're over quota or service is unavailable
+    // This prevents wasting API calls when we know they'll fail
     try {
-      // Use a simpler prompt format that works better with Gemini
-      const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-      
+      // Simplified, concise prompt to reduce token usage
+      const prompt = `Write a brief professional cover letter in English:
+
+Job: ${request.name} at ${request.employerName}
+Skills needed: ${request.skillsList.slice(0, 3).join(', ')}
+Description: ${request.plainDescription.substring(0, 400)}
+
+Format: 3 short paragraphs, 150-200 words total, professional tone.`;
+
       const result = await this.makeAIRequest(async () => {
-        return await this.model.generateContent(fullPrompt);
-      });
-      return result.response.text().trim();
-    } catch (error) {
-      console.error('Cover letter generation failed:', error);
-      console.error('Error details:', {
-        status: (error as any)?.status,
-        statusText: (error as any)?.statusText,
-        message: error instanceof Error ? error.message : String(error)
+        return await this.model.generateContent(prompt);
       });
       
-      // If rate limited, provide a template-based fallback
-      if ((error as any)?.status === 429) {
-        return this.generateFallbackCoverLetter(request);
+      const generatedText = result.response.text().trim();
+      
+      // Validate the response is reasonable
+      if (generatedText.length < 50 || generatedText.includes('[')) {
+        throw new Error('Generated text appears incomplete');
       }
       
-      throw new Error('Failed to generate cover letter');
+      return generatedText;
+      
+    } catch (error) {
+      console.error('Cover letter generation failed:', error);
+      
+      // Always fall back to template-based generation
+      return this.generateFallbackCoverLetter(request);
     }
   }
 
@@ -644,17 +617,25 @@ ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
     userProfile?: string;
     customPrompt?: string;
   }): string {
-    // Generate a professional template-based cover letter when AI is rate-limited
-    const skills = request.skillsList.slice(0, 4).join(', ');
-    const hasProfile = request.userProfile && request.userProfile.trim().length > 0;
+    const skills = request.skillsList.slice(0, 3);
+    const primarySkill = skills[0] || 'relevant experience';
+    const secondarySkills = skills.slice(1).join(' and ') || 'professional skills';
     
+    // Extract key requirements from job description
+    const description = request.plainDescription.toLowerCase();
+    let keyRequirement = 'your requirements';
+    if (description.includes('experience')) keyRequirement = 'the experience requirements';
+    else if (description.includes('skills')) keyRequirement = 'the technical skills needed';
+    else if (description.includes('responsible')) keyRequirement = 'the responsibilities outlined';
+    
+    // Create more natural, personalized template
     return `Dear Hiring Manager,
 
-I am writing to express my strong interest in the ${request.name} position at ${request.employerName}${request.areaName ? ` in ${request.areaName}` : ''}. Based on the job requirements, I believe my skills and experience make me an excellent candidate for this role.
+I am excited to apply for the ${request.name} position at ${request.employerName}. My expertise in ${primarySkill} and ${secondarySkills} makes me well-suited for this role.
 
-My technical expertise includes ${skills}, which align well with the position requirements. ${hasProfile ? `${request.userProfile!.trim()}` : 'I am passionate about delivering high-quality solutions and contributing to team success.'} I am particularly excited about the opportunity to work with your team and contribute to ${request.employerName}'s continued growth.
+I have developed strong capabilities that directly match ${keyRequirement}. Your job posting particularly caught my attention because it emphasizes skills I have successfully applied in previous positions. I am eager to bring this experience to your team in ${request.areaName}.
 
-I would welcome the opportunity to discuss how my skills and enthusiasm can contribute to your team's success. Thank you for considering my application, and I look forward to hearing from you soon.
+I would appreciate the opportunity to discuss how my background can contribute to ${request.employerName}'s continued success. Thank you for your time and consideration.
 
 Best regards,
 [Your Name]`;
