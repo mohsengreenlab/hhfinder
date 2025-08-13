@@ -1,0 +1,56 @@
+    I’m seeing two UX/logic issues in the hhfinder project:
+
+    Steps to reproduce
+
+        Log in.
+
+        Step 1: enter учитель русского языка, continue to Step 4 and browse results.
+
+        Go back to Step 1 (or start a fresh search flow) and enter English, then proceed to Step 4 again.
+
+    Actual behavior
+
+        (A) The “My Applications” list on Home stays empty even after completing the first search flow. I expected my last try to appear there, but it didn’t.
+
+        (B) Step 4 still shows results from the previous search (учитель русского языка) instead of the new English results. I have to log out and log in to see fresh results.
+
+    What I expect
+
+        (A) Clarify/implement when an item should appear in My Applications. If the design intent is “only after saving/applying a vacancy”, please show an inline hint or toast explaining that searches don’t auto-save to “My Applications”. If the intent is “save a search snapshot or first-applied vacancy automatically,” please create the application record when I first view/apply/save a vacancy in Step 4.
+
+        (B) Starting a new search (changing Step 1 keywords) should invalidate previous results and caches so Step 4 reflects the new query immediately. The wizard state and any per-search client signature / cache key must be regenerated and React Query should be invalidated for the old key(s).
+
+    Notes / Likely root cause
+
+        The UI uses a forward-only wizard with persisted state (Zustand). Beginning a new search likely does not clear the persisted wizard state and does not regenerate the client signature used by the server-side cache and React Query keys. As a result, the app reuses old results.
+
+        I see repeated logs like Client Signature: search_... and the server responding with old data even after entering a new keyword. That suggests cache key reuse.
+
+    What to change
+
+        On “Start New Search” / Step 1 keyword change:
+
+            Regenerate a new client signature for the search run.
+
+            Reset wizard state (keywords, filters, step index) and clear any persisted localStorage slice for the wizard.
+
+            Invalidate/clear React Query queries related to vacancies and relevance (e.g., all queries keyed by the previous signature). If we use a global cache like queryClient, call an invalidate/remove by key namespace.
+
+            If the server has an LRU per-signature cache, ensure the frontend always sends a fresh signature on a new search so the server won’t coalesce with the old one.
+
+        For My Applications:
+
+            Confirm when an application record is created (only on explicit Save/Apply?). If yes, add UI copy near Step 4 and on the Home page explaining that searches are not saved—only saved/applied vacancies appear there.
+
+            Optionally add a “Save this vacancy” or “Save this search” action that creates a record via POST /api/applications as soon as the user wants to keep it.
+
+    Acceptance criteria
+
+        Changing Step 1 keywords and proceeding to Step 4 shows only new results with no stale items, without needing logout/login.
+
+        My Applications reflects the decided behavior: either (a) only saved/applied vacancies appear, with clear UI text; or (b) first saved/applied vacancy from a search creates an entry; or (c) an explicit “Save search” creates a snapshot entry.
+
+    FYI (quota noise)
+
+        I also saw temporary 429s from the Gemini API; that’s separate (rate limit) and shouldn’t block fixing the cache/state bugs above.
+

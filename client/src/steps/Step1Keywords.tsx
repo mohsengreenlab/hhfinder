@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useWizardStore } from '@/state/wizard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Step1KeywordsProps {
   onBackToDashboard?: () => void;
@@ -12,6 +12,7 @@ interface Step1KeywordsProps {
 export default function Step1Keywords({ onBackToDashboard }: Step1KeywordsProps) {
   const { userInput, setUserInput, goNext } = useWizardStore();
   const [localInput, setLocalInput] = useState(userInput);
+  const queryClient = useQueryClient();
   
   // Check if Gemini API key is available
   const { data: hasGeminiKey } = useQuery({
@@ -31,6 +32,24 @@ export default function Step1Keywords({ onBackToDashboard }: Step1KeywordsProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (localInput.trim()) {
+      // Clear any existing search state if keywords changed
+      const currentInput = userInput.trim().toLowerCase();
+      const newInput = localInput.trim().toLowerCase();
+      
+      if (currentInput && currentInput !== newInput) {
+        // Keywords changed - trigger a complete search reset
+        console.log('Keywords changed - triggering search reset');
+        
+        // Clear React Query cache for all search-related queries
+        queryClient.removeQueries({ queryKey: ['/api/vacancies'] });
+        queryClient.removeQueries({ queryKey: ['/api/ai-keywords'] });
+        queryClient.removeQueries({ queryKey: ['/api/vacancies/tiered'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/hh'] });
+        
+        // Reset wizard state
+        useWizardStore.getState().resetSearch();
+      }
+      
       setUserInput(localInput.trim());
       goNext();
     }

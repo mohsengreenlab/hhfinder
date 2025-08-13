@@ -21,8 +21,8 @@ interface NewSearchButtonProps {
   onNavigateToStart?: () => void;
 }
 
-// Helper function to clear search queries
-function clearSearchQueries(queryClient: any, searchId?: string) {
+// Helper function to clear all search-related queries
+function clearSearchQueries(queryClient: any) {
   // Clear HH search queries (title, description, skills tiers)
   queryClient.removeQueries({ queryKey: ['hh.search.title'] });
   queryClient.removeQueries({ queryKey: ['hh.search.description'] });
@@ -34,9 +34,17 @@ function clearSearchQueries(queryClient: any, searchId?: string) {
   
   // Clear any merged/paginated result queries
   queryClient.removeQueries({ queryKey: ['/api/hh-search'] });
+  queryClient.removeQueries({ queryKey: ['/api/vacancies'] });
   
-  // Invalidate all queries that might have cached search results
+  // Clear tiered search results (signature-based)
+  queryClient.removeQueries({ queryKey: ['/api/vacancies/tiered'] });
+  
+  // Clear AI keywords cache
+  queryClient.removeQueries({ queryKey: ['/api/ai-keywords'] });
+  
+  // Invalidate all HH-related queries
   queryClient.invalidateQueries({ queryKey: ['/api/hh'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/vacancies'] });
 }
 
 export default function NewSearchButton({ currentStep, onNavigateToStart }: NewSearchButtonProps) {

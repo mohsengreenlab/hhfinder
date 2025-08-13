@@ -203,6 +203,9 @@ export interface WizardState {
   // Reset
   reset: () => void;
   resetSearch: () => void;
+  
+  // Cache invalidation
+  invalidateSearchCache: () => void;
 }
 
 const defaultFilters: WizardFilters = {
@@ -804,6 +807,13 @@ export const useWizardStore = create<WizardState>()(
           lastLoadedSignature: '',
           saveSignature: ''
         });
+      },
+      
+      // Cache invalidation helper - called from Step1 when keywords change
+      invalidateSearchCache: () => {
+        // This will be called by React components that have access to queryClient
+        // The actual cache invalidation is handled in components that import this function
+        console.log('Cache invalidation requested - handled by component with queryClient access');
       }
     }),
     {

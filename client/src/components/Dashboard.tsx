@@ -176,7 +176,7 @@ export function Dashboard({
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Applications</h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  All your job searches are automatically saved. Click any search to continue where you left off.
+                  Job searches are saved when you reach Step 4 (Results). Click any saved search to continue where you left off.
                 </p>
               </div>
             </div>
