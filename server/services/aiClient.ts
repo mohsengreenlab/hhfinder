@@ -186,22 +186,79 @@ export class AIClient {
 
   private getFallbackJobKeywords(input: string): string[] {
     const jobMappings: Record<string, string[]> = {
-      'официант': ['официант', 'официантка', 'waiter', 'персонал ресторана', 'обслуживающий персонал', 'работник зала'],
-      'программист': ['программист', 'разработчик', 'инженер-программист', 'девелопер', 'кодер', 'software engineer'],
-      'тестировщик': ['тестировщик', 'QA инженер', 'тестер', 'специалист по тестированию', 'QA'],
-      'менеджер': ['менеджер', 'руководитель', 'управляющий', 'координатор', 'администратор'],
-      'продавец': ['продавец', 'менеджер по продажам', 'торговый представитель', 'консультант'],
-      'дизайнер': ['дизайнер', 'графический дизайнер', 'веб-дизайнер', 'художник'],
-      'аналитик': ['аналитик', 'бизнес-аналитик', 'системный аналитик', 'исследователь']
+      'официант': [
+        'официант', 'официантка', 'бармен', 'барменша', 'персонал ресторана', 
+        'обслуживающий персонал', 'работник зала', 'сервер', 'хостес', 'администратор зала'
+      ],
+      'программист': [
+        'программист', 'разработчик', 'инженер-программист', 'разработчик ПО', 
+        'backend разработчик', 'frontend разработчик', 'fullstack разработчик', 
+        'веб-разработчик', 'Python разработчик', 'Java разработчик'
+      ],
+      'тестировщик': [
+        'тестировщик', 'QA инженер', 'тестер', 'специалист по тестированию', 
+        'тест-аналитик', 'automation QA', 'manual QA', 'QA engineer', 
+        'инженер по качеству', 'тестировщик ПО'
+      ],
+      'менеджер': [
+        'менеджер', 'руководитель', 'управляющий', 'координатор', 'администратор',
+        'проект-менеджер', 'продакт-менеджер', 'менеджер проектов', 
+        'старший менеджер', 'менеджер отдела'
+      ],
+      'продавец': [
+        'продавец', 'менеджер по продажам', 'торговый представитель', 'консультант',
+        'продавец-консультант', 'специалист по продажам', 'менеджер продаж',
+        'торговый агент', 'коммерческий представитель', 'сейлз'
+      ],
+      'дизайнер': [
+        'дизайнер', 'графический дизайнер', 'веб-дизайнер', 'UI/UX дизайнер',
+        'дизайнер интерфейсов', 'креативный дизайнер', 'моушн дизайнер',
+        'продуктовый дизайнер', 'визуальный дизайнер', 'арт-директор'
+      ],
+      'аналитик': [
+        'аналитик', 'бизнес-аналитик', 'системный аналитик', 'data analyst',
+        'финансовый аналитик', 'продуктовый аналитик', 'веб-аналитик',
+        'аналитик данных', 'исследователь', 'BI аналитик'
+      ],
+      'маркетолог': [
+        'маркетолог', 'интернет-маркетолог', 'digital маркетолог', 'SMM менеджер',
+        'контент-менеджер', 'специалист по маркетингу', 'маркетинг-менеджер',
+        'performance маркетолог', 'бренд-менеджер', 'продакт-маркетолог'
+      ],
+      'бухгалтер': [
+        'бухгалтер', 'главный бухгалтер', 'помощник бухгалтера', 'экономист',
+        'финансист', 'специалист по учету', 'бухгалтер-кассир',
+        'налоговый консультант', 'финансовый консультант', 'казначей'
+      ],
+      'водитель': [
+        'водитель', 'шофер', 'курьер', 'экспедитор', 'водитель-экспедитор',
+        'водитель грузового автомобиля', 'водитель легкового автомобиля',
+        'водитель автобуса', 'таксист', 'личный водитель'
+      ]
     };
 
+    // Find the best matching job category
     for (const [key, terms] of Object.entries(jobMappings)) {
-      if (input.includes(key)) {
-        return terms;
+      if (input.toLowerCase().includes(key)) {
+        return terms.slice(0, 15); // Return up to 15 terms
       }
     }
 
-    return [input];
+    // If no specific mapping found, try partial matches
+    const partialMatches: string[] = [];
+    if (input.includes('разработ')) partialMatches.push(...jobMappings['программист']);
+    if (input.includes('тест')) partialMatches.push(...jobMappings['тестировщик']);
+    if (input.includes('управ') || input.includes('руков')) partialMatches.push(...jobMappings['менеджер']);
+    if (input.includes('прода') || input.includes('торг')) partialMatches.push(...jobMappings['продавец']);
+    if (input.includes('дизайн') || input.includes('художн')) partialMatches.push(...jobMappings['дизайнер']);
+
+    if (partialMatches.length > 0) {
+      return Array.from(new Set(partialMatches)).slice(0, 15);
+    }
+
+    // Generic fallback - create variations of the input
+    const cleanInput = input.replace(/я хочу быть|я хочу|хочу быть|работать/gi, '').trim();
+    return [cleanInput, `специалист по ${cleanInput}`, `${cleanInput} консультант`].filter(Boolean);
   }
 
   private categorizeKeywordsFallback(keywords: string[]): {
@@ -217,26 +274,81 @@ export class AIClient {
       allowedEnglishAcronyms: [] as string[]
     };
 
-    const technicalTerms = ['Python', 'JavaScript', 'SQL', 'React', 'Node.js', 'Docker', 'AWS', 'GCP', 'ML', 'NLP'];
-    const exactJobs = ['программист', 'официант', 'менеджер', 'дизайнер', 'аналитик', 'тестировщик', 'продавец'];
-    const strongSynonyms = ['разработчик', 'девелопер', 'waiter', 'консультант', 'руководитель'];
-    const weakTerms = ['специалист', 'сотрудник', 'эксперт', 'работник'];
+    const technicalTerms = ['Python', 'JavaScript', 'SQL', 'React', 'Node.js', 'Docker', 'AWS', 'GCP', 'ML', 'NLP', 'Java', 'C++', 'TypeScript', 'Angular', 'Vue'];
+    const exactJobs = [
+      'программист', 'официант', 'официантка', 'менеджер', 'дизайнер', 'аналитик', 'тестировщик', 'продавец',
+      'бухгалтер', 'водитель', 'курьер', 'бармен', 'барменша', 'повар', 'кассир', 'администратор',
+      'секретарь', 'юрист', 'врач', 'учитель', 'воспитатель', 'инженер', 'архитектор', 'переводчик'
+    ];
+    const strongSynonyms = [
+      'разработчик', 'девелопер', 'консультант', 'руководитель', 'координатор', 'управляющий',
+      'торговый представитель', 'менеджер по продажам', 'проект-менеджер', 'продакт-менеджер',
+      'веб-разработчик', 'frontend разработчик', 'backend разработчик', 'fullstack разработчик',
+      'QA инженер', 'тестер', 'инженер-программист', 'системный администратор'
+    ];
+    const weakTerms = ['специалист', 'сотрудник', 'эксперт', 'работник', 'помощник', 'стажер', 'junior'];
 
-    for (const keyword of keywords) {
-      const lower = keyword.toLowerCase();
+    // Ensure we have at least 10 keywords total by prioritizing the most relevant
+    const totalNeeded = 10;
+    let totalAssigned = 0;
+
+    for (const keyword of keywords.slice(0, 15)) { // Process up to 15 keywords
+      if (totalAssigned >= totalNeeded) break;
       
+      const lower = keyword.toLowerCase();
+      let assigned = false;
+      
+      // Check for technical terms first
       if (technicalTerms.some(tech => keyword.includes(tech))) {
         result.allowedEnglishAcronyms.push(keyword);
-      } else if (exactJobs.some(job => lower.includes(job))) {
+        assigned = true;
+      }
+      // Check for exact job titles
+      else if (exactJobs.some(job => lower.includes(job))) {
         result.exactPhrases.push(keyword);
-      } else if (strongSynonyms.some(syn => lower.includes(syn))) {
+        assigned = true;
+      }
+      // Check for strong synonyms
+      else if (strongSynonyms.some(syn => lower.includes(syn))) {
         result.strongSynonyms.push(keyword);
-      } else if (weakTerms.some(weak => lower.includes(weak))) {
+        assigned = true;
+      }
+      // Check for weak terms
+      else if (weakTerms.some(weak => lower.includes(weak))) {
         result.weakAmbiguous.push(keyword);
-      } else {
-        result.strongSynonyms.push(keyword); // Default to strong synonyms
+        assigned = true;
+      }
+      // Default categorization for remaining terms
+      else {
+        // If it looks like a job title, put in exact phrases
+        if (keyword.length <= 25 && !keyword.includes('я хочу') && !keyword.includes('работать')) {
+          result.strongSynonyms.push(keyword);
+          assigned = true;
+        }
+      }
+      
+      if (assigned) totalAssigned++;
+    }
+
+    // Ensure we have at least 10 total keywords distributed properly
+    const currentTotal = result.exactPhrases.length + result.strongSynonyms.length + 
+                        result.weakAmbiguous.length + result.allowedEnglishAcronyms.length;
+    
+    if (currentTotal < 10 && keywords.length > currentTotal) {
+      // Add remaining keywords as strong synonyms up to 10 total
+      const remaining = keywords.slice(currentTotal, 10);
+      for (const keyword of remaining) {
+        if (!keyword.includes('я хочу') && keyword.trim().length > 2) {
+          result.strongSynonyms.push(keyword);
+        }
       }
     }
+
+    // Cap each category to reasonable limits
+    result.exactPhrases = result.exactPhrases.slice(0, 5);
+    result.strongSynonyms = result.strongSynonyms.slice(0, 5);
+    result.weakAmbiguous = result.weakAmbiguous.slice(0, 3);
+    result.allowedEnglishAcronyms = result.allowedEnglishAcronyms.slice(0, 3);
 
     return result;
   }
