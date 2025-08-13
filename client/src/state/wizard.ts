@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 
 // Feature flag to disable auto-save for debugging
-const AUTO_SAVE_ENABLED = false; // Set to false to test if auto-save is causing the loop
+const AUTO_SAVE_ENABLED = true; // Auto-save enabled for production functionality
 
 // External refs to prevent auto-save state from triggering re-renders
 let inFlightRef = false;
@@ -60,7 +60,18 @@ function generateSaveSignature(state: any): string {
     currentVacancyIndex: state.currentVacancyIndex
   };
   
-  return JSON.stringify(saveData);
+  // Create a stable hash from the normalized parameters
+  const jsonString = JSON.stringify(saveData);
+  
+  // Simple hash function for client-side use
+  let hash = 0;
+  for (let i = 0; i < jsonString.length; i++) {
+    const char = jsonString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return `save_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`;
 }
 
 export type WizardStep = 'keywords' | 'confirm' | 'filters' | 'results';
@@ -850,6 +861,7 @@ export const useWizardStore = create<WizardState>()(
       partialize: (state) => ({
         userInput: state.userInput,
         selectedKeywords: state.selectedKeywords,
+        selectedKeywordsCanonical: state.selectedKeywordsCanonical, // Critical for cache bypass
         filters: state.filters,
         currentStep: state.currentStep,
         currentApplicationId: state.currentApplicationId,
