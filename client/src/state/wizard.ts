@@ -446,8 +446,9 @@ export const useWizardStore = create<WizardState>()(
         
         const state = get();
         
-        // Don't auto-save unless we've reached Step 4
-        if (!state.hasReachedStep4 || state.selectedKeywords.length === 0) {
+        // Don't auto-save unless we've reached Step 4 and have search results
+        if (!state.hasReachedStep4 || state.selectedKeywords.length === 0 || state.searchResults.length === 0) {
+          console.log(`🚫 Auto-save skipped: hasReachedStep4=${state.hasReachedStep4}, keywords=${state.selectedKeywords.length}, results=${state.searchResults.length}`);
           return;
         }
         
@@ -530,7 +531,17 @@ export const useWizardStore = create<WizardState>()(
               set({ currentApplicationId: savedApp.id });
             }
             
-            console.log(`Auto-save successful: saveSignatureChanges=${saveSignatureChanges}, autoSaveCalls=${autoSaveCalls}, PATCHes=${patchCount}`);
+            console.log(`✅ Auto-save successful: ID=${savedApp.id}, title="${savedApp.title}", saveSignatureChanges=${saveSignatureChanges}, autoSaveCalls=${autoSaveCalls}, PATCHes=${patchCount}`);
+            
+            // Import queryClient and invalidate applications cache so "My Applications" refreshes
+            import('../lib/queryClient').then(({ queryClient }) => {
+              console.log(`🔄 Invalidating applications cache after save`);
+              queryClient.invalidateQueries({ queryKey: ['/api/applications'] });
+            });
+          } else {
+            console.error(`❌ Auto-save failed: ${response.status} ${response.statusText}`);
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error(`❌ Error details: ${errorText}`);
           }
         } catch (error) {
           console.error('Auto-save failed:', error);
@@ -544,13 +555,13 @@ export const useWizardStore = create<WizardState>()(
       markReachedStep4: () => {
         const { hasReachedStep4 } = get();
         if (!hasReachedStep4) {
+          console.log(`🏁 markReachedStep4: Setting hasReachedStep4=true and triggering save`);
           set({ hasReachedStep4: true });
-          // Trigger initial save when reaching Step 4
-          setTimeout(() => {
-            const state = get();
-            const newSignature = generateSaveSignature(state);
-            set({ saveSignature: newSignature });
-          }, 100);
+          // Trigger initial save immediately when reaching Step 4
+          const state = get();
+          const newSignature = generateSaveSignature(state);
+          console.log(`🏁 markReachedStep4: Generated save signature: ${newSignature}`);
+          set({ saveSignature: newSignature });
         }
       },
       
@@ -860,7 +871,7 @@ if (AUTO_SAVE_ENABLED) {
     (newSignature, prevSignature) => {
       if (newSignature && newSignature !== prevSignature) {
         saveSignatureChanges++;
-        console.log(`Save signature changed #${saveSignatureChanges}: ${prevSignature} -> ${newSignature}`);
+        console.log(`💾 Save signature changed #${saveSignatureChanges}: ${prevSignature} -> ${newSignature}`);
         
         // Debounced auto-save
         if (debounceTimeoutRef) {
@@ -868,6 +879,7 @@ if (AUTO_SAVE_ENABLED) {
         }
         debounceTimeoutRef = setTimeout(() => {
           const state = useWizardStore.getState();
+          console.log(`💾 Executing auto-save after 600ms debounce`);
           state.autoSave();
         }, 600); // 600ms debounce
       }
