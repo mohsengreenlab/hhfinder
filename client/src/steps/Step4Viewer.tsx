@@ -1199,7 +1199,7 @@ ${jobInfo.description}`;
             </p>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-slate-600" data-testid="current-position">
-                Showing position {currentVacancyIndex + 1} of {totalFound}
+                Showing position {(currentPage * 50) + currentVacancyIndex + 1} of {totalFound}
               </p>
               
               {/* Page Jump Controls */}
@@ -1345,7 +1345,7 @@ ${jobInfo.description}`;
                   </div>
                   <div className="mt-3 pt-2 border-t border-gray-200">
                     <div className="text-xs text-gray-600">
-                      Current vacancy: #{currentVacancyIndex + 1} of {totalFound}
+                      Current vacancy: #{(currentPage * 50) + currentVacancyIndex + 1} of {totalFound}
                       {currentVacancy?._tierSource && (
                         <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
                           {currentVacancy._tierSource} match

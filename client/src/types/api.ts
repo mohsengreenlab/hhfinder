@@ -148,6 +148,7 @@ export interface HHVacancyDetail {
   working_time_modes?: Array<{ id: string; name: string }>;
   schedule?: { id: string; name: string } | null;
   employment?: { id: string; name: string } | null;
+  experience?: { id: string; name: string } | null;
 }
 
 export interface CoverLetterRequest {
