@@ -322,7 +322,7 @@ ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
       // Use a simpler prompt format that works better with Gemini
       const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
       
-      const result = await this.proModel.generateContent(fullPrompt);
+      const result = await this.model.generateContent(fullPrompt);
       return result.response.text().trim();
     } catch (error) {
       console.error('Cover letter generation failed:', error);
