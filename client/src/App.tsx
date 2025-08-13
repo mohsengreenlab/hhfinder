@@ -48,7 +48,8 @@ function AuthenticatedApp() {
     setCurrentApplicationId,
     appliedVacancyIds,
     markVacancyAsApplied,
-    reset 
+    reset,
+    restoreSearchState
   } = useWizardStore();
 
   if (isLoading) {
@@ -77,6 +78,8 @@ function AuthenticatedApp() {
   };
 
   const handleContinueApplication = (application: JobApplication) => {
+    console.log('🔄 Continuing application:', application.title);
+    
     // Clear all cached data before loading a different application
     queryClientInstance.invalidateQueries();
     queryClientInstance.clear();
@@ -84,23 +87,16 @@ function AuthenticatedApp() {
     // First completely reset state to ensure clean slate
     reset();
     
-    // Then restore the specific application state
+    // Set the application ID and step first
     setCurrentApplicationId(application.id);
     setCurrentStep(application.currentStep);
-    setSelectedKeywords(application.selectedKeywords.map(k => typeof k === 'string' ? { text: k, source: 'custom' as const } : k));
     setSuggestedKeywords(application.suggestedKeywords || []);
-    setFilters(application.filters || {});
-    setCurrentVacancyIndex(application.currentVacancyIndex || 0);
     
-    // Use setSearchResults to restore both vacancies and totalFound
-    setSearchResults(application.vacancies || [], application.totalVacancies || 0);
+    // Use the new restore method that properly handles search signatures
+    const signature = restoreSearchState(application);
     
-    // Restore applied vacancy IDs
-    if ((application as any).appliedVacancyIds && (application as any).appliedVacancyIds.length > 0) {
-      (application as any).appliedVacancyIds.forEach((vacancyId: string) => {
-        markVacancyAsApplied(vacancyId);
-      });
-    }
+    console.log('🔄 Application restored with search signature:', signature);
+    console.log('🔄 Will navigate to step:', application.currentStep);
     
     setAppState('wizard');
   };

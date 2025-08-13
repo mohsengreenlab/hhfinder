@@ -217,6 +217,7 @@ export interface WizardState {
   
   // Cache invalidation
   invalidateSearchCache: () => void;
+  restoreSearchState: (applicationData: any) => string;
 }
 
 const defaultFilters: WizardFilters = {
@@ -854,6 +855,45 @@ export const useWizardStore = create<WizardState>()(
         // This will be called by React components that have access to queryClient
         // The actual cache invalidation is handled in components that import this function
         console.log('Cache invalidation requested - handled by component with queryClient access');
+      },
+
+      // Restore search state from saved application with proper signature handling
+      restoreSearchState: (applicationData: any) => {
+        console.log('🔄 Restoring search state from saved application:', applicationData.title);
+        
+        // First restore the core state
+        const restoredKeywords = applicationData.selectedKeywords.map((k: any) => 
+          typeof k === 'string' ? { text: k, source: 'custom' as const } : k
+        );
+        
+        set({ 
+          selectedKeywords: restoredKeywords,
+          selectedKeywordsCanonical: restoredKeywords, // Also set canonical directly
+          filters: applicationData.filters || defaultFilters,
+          currentVacancyIndex: applicationData.currentVacancyIndex || 0,
+          appliedVacancyIds: applicationData.appliedVacancyIds || [],
+          hasReachedStep4: applicationData.currentStep >= 4
+        });
+        
+        // Generate the search signature from the restored state
+        const state = get();
+        const expectedSignature = state.generateSearchSignature();
+        
+        // Set search results and align signature to prevent cache invalidation
+        set({
+          searchResults: applicationData.vacancies || [],
+          totalFound: applicationData.totalVacancies || 0,
+          currentSearchSignature: expectedSignature,
+          lastLoadedSignature: expectedSignature, // Critical: prevent cache clearing
+          searchNeedsRefresh: false, // Mark search as up-to-date
+          lastSearchKeywords: [...restoredKeywords],
+          lastSearchFilters: applicationData.filters || defaultFilters
+        });
+        
+        console.log('🔄 Restored search state - signature:', expectedSignature);
+        console.log('🔄 Restored results:', applicationData.vacancies?.length || 0, 'vacancies');
+        
+        return expectedSignature;
       }
     }),
     {
