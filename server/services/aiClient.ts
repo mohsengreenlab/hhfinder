@@ -68,12 +68,15 @@ export class AIClient {
       return result_data;
     } catch (error) {
       console.error('AI Russian seed generation failed:', error);
-      // Fallback to basic structure with user input
+      // Enhanced fallback with common job-related terms
+      const input = userInput.toLowerCase().trim();
+      const fallbackTerms = this.generateFallbackKeywords(input);
+      
       return {
-        exactPhrases: [userInput],
-        strongSynonyms: [],
-        weakAmbiguous: [],
-        allowedEnglishAcronyms: []
+        exactPhrases: fallbackTerms.exact,
+        strongSynonyms: fallbackTerms.synonyms,
+        weakAmbiguous: fallbackTerms.weak,
+        allowedEnglishAcronyms: fallbackTerms.english
       };
     }
   }
@@ -122,8 +125,23 @@ export class AIClient {
       return validatedResults;
     } catch (error) {
       console.error('AI relevance filtering failed:', error);
-      // Fallback: return all keywords with neutral relevance
-      return keywords.map(text => ({ text, relevanceScore: 5 }));
+      // Enhanced fallback: assign relevance based on keyword position and content
+      return keywords.map((text, index) => {
+        // Give higher scores to earlier keywords and exact matches
+        let score = Math.max(8 - index, 3); // Start high, decrease by position
+        
+        // Boost score for exact or partial matches with user input
+        const lowerInput = userInput.toLowerCase();
+        const lowerText = text.toLowerCase();
+        
+        if (lowerText === lowerInput) {
+          score = 10; // Exact match
+        } else if (lowerText.includes(lowerInput) || lowerInput.includes(lowerText)) {
+          score = Math.min(score + 2, 9); // Partial match boost
+        }
+        
+        return { text, relevanceScore: score };
+      }).sort((a, b) => b.relevanceScore - a.relevanceScore);
     }
   }
 
@@ -364,6 +382,80 @@ I would welcome the opportunity to discuss how my skills and enthusiasm can cont
 
 Best regards,
 [Your Name]`;
+  }
+
+  private generateFallbackKeywords(input: string): {
+    exact: string[];
+    synonyms: string[];
+    weak: string[];
+    english: string[];
+  } {
+    const result = {
+      exact: [input],
+      synonyms: [] as string[],
+      weak: [] as string[],
+      english: [] as string[]
+    };
+
+    // Common job term mappings for when AI is unavailable
+    const jobMappings: Record<string, { synonyms: string[]; weak: string[]; english: string[] }> = {
+      'разработчик': {
+        synonyms: ['программист', 'developer', 'инженер-программист'],
+        weak: ['IT-специалист', 'технический специалист'],
+        english: ['JS', 'Python', 'React']
+      },
+      'тестировщик': {
+        synonyms: ['QA', 'тестер', 'инженер по тестированию'],
+        weak: ['контроль качества', 'аналитик'],
+        english: ['QA', 'Selenium', 'Postman']
+      },
+      'аналитик': {
+        synonyms: ['analyst', 'бизнес-аналитик', 'системный аналитик'],
+        weak: ['исследователь', 'консультант'],
+        english: ['SQL', 'Excel', 'BI']
+      },
+      'дизайнер': {
+        synonyms: ['designer', 'графический дизайнер', 'веб-дизайнер'],
+        weak: ['художник', 'креативщик'],
+        english: ['UI', 'UX', 'Figma']
+      },
+      'менеджер': {
+        synonyms: ['manager', 'руководитель', 'координатор'],
+        weak: ['управляющий', 'администратор'],
+        english: ['PM', 'CRM']
+      },
+      'официант': {
+        synonyms: ['waiter', 'обслуживающий персонал', 'сервер'],
+        weak: ['работник ресторана', 'персонал зала'],
+        english: []
+      },
+      'продавец': {
+        synonyms: ['менеджер по продажам', 'консультант', 'sales'],
+        weak: ['торговый представитель', 'специалист по продажам'],
+        english: ['CRM']
+      }
+    };
+
+    // Find matching terms
+    for (const [key, mapping] of Object.entries(jobMappings)) {
+      if (input.includes(key)) {
+        result.synonyms.push(...mapping.synonyms);
+        result.weak.push(...mapping.weak);
+        result.english.push(...mapping.english);
+        break;
+      }
+    }
+
+    // If no specific mapping found, add some generic terms
+    if (result.synonyms.length === 0) {
+      if (input.includes('инженер')) {
+        result.synonyms.push('специалист', 'технический специалист');
+      } else if (input.includes('специалист')) {
+        result.synonyms.push('эксперт', 'консультант');
+      }
+    }
+
+    return result;
   }
 }
 
