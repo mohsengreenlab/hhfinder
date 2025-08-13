@@ -609,6 +609,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedBody = filterMatchRequestSchema.parse(req.body);
       
+      console.log('🎯 Filter match request received:');
+      console.log('   Selected keywords:', validatedBody.selectedKeywords);
+      console.log('   Use exact phrases:', validatedBody.useExactPhrases);
+      console.log('   Title first search:', validatedBody.titleFirstSearch);
+      
       // Get dictionaries for mapping
       const dictionaries = dictionariesCache.get('dictionaries') || 
                           (await hhClient.getDictionaries()).data;
@@ -616,6 +621,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const aiStartTime = Date.now();
       const filters = await aiClient.mapFiltersToHH(validatedBody, dictionaries);
       const aiDuration = Date.now() - aiStartTime;
+      
+      console.log('🎯 Filter match response generated:');
+      console.log('   Text parameter:', filters.text);
+      console.log('   Search fields:', filters.search_field);
 
       res.locals.addTiming('ai', aiDuration);
       res.locals.addTiming('total', Date.now() - startTime);

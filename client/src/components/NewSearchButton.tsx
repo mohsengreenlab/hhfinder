@@ -57,22 +57,28 @@ export default function NewSearchButton({ currentStep, onNavigateToStart }: NewS
     // Get current state for logging
     const currentState = useWizardStore.getState();
     const oldSignature = currentState.currentSearchSignature;
+    const oldKeywords = currentState.selectedKeywordsCanonical;
     
-    console.log(`NewSearch clicked at step ${currentStep}, old signature=${oldSignature}`);
+    console.log(`🆕 NewSearch clicked at step ${currentStep}`);
+    console.log(`🆕 Old signature=${oldSignature}, old keywords=[${oldKeywords.map(k => k.text).join(',')}]`);
     
-    // Clear React Query cache FIRST
-    console.log('React Query invalidated: [/api/vacancies], [/api/ai-keywords], [/api/hh]');
+    // Clear React Query cache FIRST - be more aggressive
+    console.log('🗑️ Clearing all search-related React Query cache');
+    queryClient.clear(); // Nuclear option - clear everything
     clearSearchQueries(queryClient);
     
     // Clear wizard state and generate new signature
+    console.log('🔄 Resetting wizard state...');
     resetSearch();
     
-    // Get new signature after reset
+    // Get new signature after reset for verification
     const newState = useWizardStore.getState();
     const newSignature = newState.currentSearchSignature;
+    const newKeywords = newState.selectedKeywordsCanonical;
     
-    console.log(`New signature generated: ${newSignature}`);
-    console.log('Wizard reset complete; persisted store cleared');
+    console.log(`🆕 New signature generated: ${newSignature}`);
+    console.log(`🆕 New keywords after reset: [${newKeywords.map(k => k.text).join(',')}]`);
+    console.log('✅ Wizard reset complete; all caches cleared');
     
     // Navigate to start
     if (onNavigateToStart) {

@@ -316,7 +316,7 @@ ${jobInfo.description}`;
       
       return response.json();
     },
-    enabled: selectedKeywords.length > 0
+    enabled: selectedKeywordsCanonical.length > 0
   });
 
   // Signature ref to prevent infinite loops
