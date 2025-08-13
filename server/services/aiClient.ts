@@ -78,6 +78,55 @@ export class AIClient {
     }
   }
 
+  // AI relevance filtering for keywords
+  async filterKeywordsByRelevance(userInput: string, keywords: string[]): Promise<{text: string; relevanceScore: number}[]> {
+    const prompt = `
+Ты эксперт по поиску работы. Пользователь ввёл запрос: "${userInput}"
+
+Оцени каждое предложенное ключевое слово по релевантности к исходному запросу по шкале 0-10:
+- 10: Прямое совпадение или точный синоним
+- 8-9: Очень связанные термины (та же профессия, но разные формулировки)  
+- 6-7: Похожие профессии или смежные области
+- 4-5: Отдалённо связанные термины
+- 0-3: Совершенно несвязанные термины
+
+Ключевые слова для оценки: ${JSON.stringify(keywords)}
+
+Верни JSON массив объектов с полями "text" и "relevanceScore":
+[
+  {"text": "ключевое слово", "relevanceScore": 9},
+  {"text": "другое слово", "relevanceScore": 6}
+]
+
+Только JSON, без объяснений.`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = result.response.text().trim();
+      
+      // Extract JSON from response
+      let jsonText = response;
+      if (response.includes('```json')) {
+        jsonText = response.split('```json')[1].split('```')[0].trim();
+      } else if (response.includes('```')) {
+        jsonText = response.split('```')[1].split('```')[0].trim();
+      }
+      
+      const parsed = JSON.parse(jsonText);
+      
+      // Validate and sort by relevance score
+      const validatedResults = parsed
+        .filter((item: any) => item.text && typeof item.relevanceScore === 'number')
+        .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
+      
+      return validatedResults;
+    } catch (error) {
+      console.error('AI relevance filtering failed:', error);
+      // Fallback: return all keywords with neutral relevance
+      return keywords.map(text => ({ text, relevanceScore: 5 }));
+    }
+  }
+
   // Keep the legacy method for backward compatibility (deprecated)
   async generateJobTitles(userInput: string): Promise<string[]> {
     const seeds = await this.generateRussianSeedTerms(userInput);

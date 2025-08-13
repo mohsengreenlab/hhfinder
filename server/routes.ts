@@ -489,6 +489,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
 
+        // AI relevance filtering - filter out irrelevant keywords
+        const relevanceStartTime = Date.now();
+        try {
+          const allSuggestions = [...result.exactPhrases, ...result.strongSynonyms, ...result.weakAmbiguous];
+          const allKeywords = allSuggestions.map(s => s.text);
+          
+          if (allKeywords.length > 0) {
+            const scoredKeywords = await aiClient.filterKeywordsByRelevance(query, allKeywords);
+            
+            // Only keep keywords with relevance score >= 6 and limit to top 10
+            const relevantKeywords = scoredKeywords
+              .filter(item => item.relevanceScore >= 6)
+              .slice(0, 10);
+            
+            // Rebuild result with only relevant keywords (preserve original structure)
+            const relevantTexts = new Set(relevantKeywords.map(k => k.text));
+            
+            result.exactPhrases = result.exactPhrases.filter(s => relevantTexts.has(s.text));
+            result.strongSynonyms = result.strongSynonyms.filter(s => relevantTexts.has(s.text));
+            result.weakAmbiguous = result.weakAmbiguous.filter(s => relevantTexts.has(s.text));
+            
+            // Log relevance filtering results
+            console.log(`🎯 Relevance filtering for "${query}": ${allKeywords.length} -> ${relevantKeywords.length} keywords`);
+            if (relevantKeywords.length > 0) {
+              console.log('   Top relevant keywords:', relevantKeywords.slice(0, 5).map(k => `"${k.text}" (${k.relevanceScore})`).join(', '));
+            }
+          }
+        } catch (error) {
+          console.error('Relevance filtering failed, keeping all keywords:', error);
+        }
+        const relevanceDuration = Date.now() - relevanceStartTime;
+
         // Calculate language stats
         const allSuggestions = [...result.exactPhrases, ...result.strongSynonyms, ...result.weakAmbiguous];
         result.languageStats = {
@@ -499,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.locals.addTiming('ai', aiDuration);
         res.locals.addTiming('hh', hhDuration);
+        res.locals.addTiming('relevance', relevanceDuration);
         
         return result;
       });
