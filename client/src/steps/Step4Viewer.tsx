@@ -909,42 +909,70 @@ ${jobInfo.description}`;
 
   const handlePageJump = () => {
     setJumpError('');
-    const pageNumber = parseInt(pageJumpValue, 10);
+    const vacancyNumber = parseInt(pageJumpValue, 10);
     
     if (!pageJumpValue.trim()) {
-      setJumpError('Please enter a page number');
+      setJumpError('Please enter a vacancy number');
       return;
     }
     
-    if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > totalFound) {
+    if (isNaN(vacancyNumber) || vacancyNumber < 1 || vacancyNumber > totalFound) {
       setJumpError(`Please enter a number between 1 and ${totalFound}`);
       return;
     }
     
-    const targetIndex = pageNumber - 1; // Convert to 0-based index
-    const success = jumpToVacancy(targetIndex);
+    const targetIndex = vacancyNumber - 1; // Convert to 0-based index
+    const targetPage = Math.floor(targetIndex / 50); // Calculate which page this vacancy is on
+    const targetIndexInPage = targetIndex % 50; // Position within that page
     
-    if (success) {
-      setPageJumpValue('');
-      // Clear previous cover letter when jumping
-      setGeneratedLetter('');
-      setShowCoverLetter(false);
-      
-      // Smooth scroll to top
+    // Check if we need to load a different page
+    if (targetPage !== currentPage) {
+      // Set page first, then the index will be set after the data loads
+      setCurrentPage(targetPage);
+      // Store the target index to set after the page loads
       setTimeout(() => {
+        setCurrentVacancyIndex(targetIndexInPage);
+        setPageJumpValue('');
+        setGeneratedLetter('');
+        setShowCoverLetter(false);
+        
+        // Smooth scroll to top
         window.scrollTo({
           top: 0,
           behavior: 'smooth'
         });
-      }, 100);
-      
-      // Auto-save after jumping to new position
-      setTimeout(() => {
-        const { autoSave } = useWizardStore.getState();
-        autoSave();
-      }, 500);
+        
+        // Auto-save after jumping
+        setTimeout(() => {
+          const { autoSave } = useWizardStore.getState();
+          autoSave();
+        }, 500);
+      }, 1000); // Wait for page to load
     } else {
-      setJumpError('Unable to jump to that vacancy');
+      // Target is on current page - jump directly
+      const success = jumpToVacancy(targetIndex);
+      
+      if (success) {
+        setPageJumpValue('');
+        setGeneratedLetter('');
+        setShowCoverLetter(false);
+        
+        // Smooth scroll to top
+        setTimeout(() => {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }, 100);
+        
+        // Auto-save after jumping
+        setTimeout(() => {
+          const { autoSave } = useWizardStore.getState();
+          autoSave();
+        }, 500);
+      } else {
+        setJumpError('Unable to jump to that vacancy');
+      }
     }
   };
 
@@ -1202,26 +1230,33 @@ ${jobInfo.description}`;
                 Showing position {(currentPage * 50) + currentVacancyIndex + 1} of {totalFound}
               </p>
               
-              {/* Page Jump Controls */}
+              {/* Page Jump Controls with Range Hints */}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-500">Jump to:</span>
-                <input
-                  type="text"
-                  value={pageJumpValue}
-                  onChange={(e) => setPageJumpValue(e.target.value)}
-                  onKeyDown={handlePageJumpKeyDown}
-                  placeholder="1"
-                  className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  data-testid="page-jump-input"
-                />
+                <div className="flex flex-col gap-1">
+                  <input
+                    type="text"
+                    value={pageJumpValue}
+                    onChange={(e) => setPageJumpValue(e.target.value)}
+                    onKeyDown={handlePageJumpKeyDown}
+                    placeholder="1"
+                    className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    data-testid="page-jump-input"
+                  />
+                  {/* Range hint */}
+                  <div className="text-xs text-slate-400 whitespace-nowrap">
+                    Current: {(currentPage * 50) + 1}–{Math.min((currentPage + 1) * 50, totalFound)}
+                  </div>
+                </div>
                 <Button
                   onClick={handlePageJump}
                   size="sm"
                   variant="outline"
                   className="px-3 py-1 text-sm"
                   data-testid="page-jump-button"
+                  disabled={isSearching} // Disable during loading
                 >
-                  Go
+                  {isSearching ? 'Loading...' : 'Go'}
                 </Button>
               </div>
             </div>
