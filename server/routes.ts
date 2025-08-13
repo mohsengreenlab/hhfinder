@@ -275,9 +275,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Allow saving even if search results haven't loaded yet (they come async)
       
-      const appData = insertJobApplicationSchema.parse({ ...req.body, userId: user.id });
+      // Prepare validated data with safe defaults
+      const safeAppData = {
+        ...req.body,
+        userId: user.id,
+        vacancies: req.body.vacancies || [], // Default to empty array if undefined
+        totalVacancies: req.body.totalVacancies || 0,
+        appliedVacancyIds: req.body.appliedVacancyIds || [],
+        selectedKeywords: req.body.selectedKeywords || [],
+        suggestedKeywords: req.body.suggestedKeywords || []
+      };
       
-      console.log(`✅ Creating application - Title: "${title}", Keywords: [${selectedKeywords?.join(', ') || 'none'}], Results: ${searchResults.length}`);
+      console.log(`🔍 Request body validation - vacancies: ${req.body.vacancies?.length || 'undefined'}, total: ${req.body.totalVacancies || 'undefined'}`);
+      
+      const appData = insertJobApplicationSchema.parse(safeAppData);
+      
+      console.log(`✅ Creating application - Title: "${title}", Keywords: [${selectedKeywords?.join(', ') || 'none'}], Results: ${appData.vacancies.length}`);
       
       const application = await storage.createJobApplication(appData);
       
