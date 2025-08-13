@@ -1,0 +1,105 @@
+I’m still hitting the same two issues in hhfinder. Please reproduce and fix using the steps and acceptance criteria below.
+
+Context
+
+    When I start a new search via the “New Search” button from Steps 1/2/3/4, Step 4 still shows stale results from the previous search until I log out/in.
+
+    My Applications on the Home page still doesn’t show auto-saved items after I complete a flow.
+
+How to reproduce (please do it exactly like this)
+
+    Log in.
+
+    Step 1: enter учитель русского языка → continue to Step 4 and browse a few vacancies.
+
+    Now, without going Home, click “New Search” (from whichever step you’re on) and enter English.
+
+    Go to Step 4 again.
+
+    Also, go to Home → My Applications.
+
+Actual behavior
+
+    Step 4 still shows the old учитель русского языка results after the “New Search” flow.
+
+    My Applications remains empty (no auto-saved record appears).
+
+What I expect
+
+    Hitting “New Search” from ANY step fully resets the search run:
+
+        a new client signature is generated,
+
+        the wizard state is cleared (including any persisted state),
+
+        and React Query cache for the previous run is invalidated/removed.
+
+        Result: Step 4 shows only fresh results for the new keywords, with no stale items, and no logout/login needed.
+
+    My Applications shows auto-saved items according to the intended design (see below).
+
+What to verify while reproducing
+
+    In DevTools → Network, confirm requests after starting the new search carry a different client signature than the previous search.
+
+    In server logs, the 🔍 [search_*] Client Signature: lines must change when the new search starts.
+
+    In Home → My Applications, I should see the auto-saved item(s) after finishing a run.
+
+Likely root cause / where to fix
+
+    The “New Search” button handler does not fully reset the state and caches when used from Steps 1–4. It should:
+
+        Generate a new search/client signature immediately upon “New Search”.
+
+        Reset the wizard store (Zustand) and clear its persisted slice so no stale keywords/filters/step index remain.
+
+        Invalidate/remove React Query data tied to the previous signature and generic vacancy queries (so nothing from the old run leaks).
+
+    Auto-save / My Applications:
+
+        Confirm when an application record is created (on first view in Step 4, on “Save”, or on “Apply”?).
+
+        If auto-save on Step 4 is intended, ensure the UI actually triggers the create call (e.g., POST /api/applications) and that it succeeds (look for 201/200 in logs).
+
+        If auto-save is not intended, update the UI text and provide a clear “Save” action the user can take, and verify it creates a record that appears on Home.
+
+Diagnostics to add (temporary)
+
+    Log on every “New Search” click: NewSearch clicked at step X, old signature=..., new signature=...
+
+    Log after state reset: Wizard reset complete; persisted store cleared
+
+    Log after cache clear: React Query invalidated: <keys>
+
+    When creating an application: log the exact request: POST /api/applications with payload summary and response status.
+
+Acceptance criteria
+
+    After pressing “New Search” from any step and entering new keywords, Step 4 shows fresh results only (no items from the previous query). This works without reload or logout.
+
+    Client signature changes on each new search; old queries are not reused.
+
+    Wizard persisted state is cleared on “New Search” (keywords/filters/step index reset).
+
+    My Applications shows entries according to the decided behavior:
+
+        If auto-save is intended, I can finish a run and see a new item on Home without extra clicks.
+
+        If explicit saving is intended, there is a visible Save action in Step 4, and using it adds an entry that appears on Home.
+
+    Provide the test evidence:
+
+        Console screenshot of “NewSearch clicked…” and changed signature,
+
+        Network HAR (showing new signature on requests),
+
+        Server log snippet showing POST /api/applications (or a clear UI hint if explicit save is required).
+
+Please confirm:
+
+    The exact intended rule for populating “My Applications” (auto-save vs manual save),
+
+    The component(s) updated for the “New Search” button so it fully resets both persisted wizard state and React Query cache,
+
+    And that all four steps now use the same, fixed reset behavior.

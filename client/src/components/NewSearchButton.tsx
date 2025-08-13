@@ -54,11 +54,25 @@ export default function NewSearchButton({ currentStep, onNavigateToStart }: NewS
   const { toast } = useToast();
 
   const handleNewSearch = () => {
-    // Clear React Query cache
+    // Get current state for logging
+    const currentState = useWizardStore.getState();
+    const oldSignature = currentState.currentSearchSignature;
+    
+    console.log(`NewSearch clicked at step ${currentStep}, old signature=${oldSignature}`);
+    
+    // Clear React Query cache FIRST
+    console.log('React Query invalidated: [/api/vacancies], [/api/ai-keywords], [/api/hh]');
     clearSearchQueries(queryClient);
     
-    // Clear wizard state
+    // Clear wizard state and generate new signature
     resetSearch();
+    
+    // Get new signature after reset
+    const newState = useWizardStore.getState();
+    const newSignature = newState.currentSearchSignature;
+    
+    console.log(`New signature generated: ${newSignature}`);
+    console.log('Wizard reset complete; persisted store cleared');
     
     // Navigate to start
     if (onNavigateToStart) {

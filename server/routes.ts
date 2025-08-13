@@ -259,9 +259,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user as User;
       
+      console.log(`📝 POST /api/applications - User: ${user.username}, Body keys: [${Object.keys(req.body).join(', ')}]`);
+      
       // Check if the user has reached Step 4 (based on presence of search results)
-      const { searchResults, currentVacancyIndex } = req.body;
+      const { searchResults, currentVacancyIndex, title, selectedKeywords } = req.body;
       if (!searchResults || searchResults.length === 0) {
+        console.log(`❌ Cannot save - no search results. Results length: ${searchResults?.length || 0}`);
         return res.status(400).json({ 
           error: "Cannot save before reaching Step 4",
           message: "Searches are only saved once you reach the results viewer in Step 4."
@@ -270,10 +273,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const appData = insertJobApplicationSchema.parse({ ...req.body, userId: user.id });
       
+      console.log(`✅ Creating application - Title: "${title}", Keywords: [${selectedKeywords?.join(', ') || 'none'}], Results: ${searchResults.length}`);
+      
       const application = await storage.createJobApplication(appData);
-      res.json(application);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid application data" });
+      
+      console.log(`💾 Application created successfully - ID: ${application.id}, Response status: 201`);
+      
+      res.status(201).json(application);
+    } catch (error: any) {
+      console.error(`❌ POST /api/applications failed:`, error?.message || error);
+      res.status(400).json({ error: "Invalid application data", details: error?.message });
     }
   });
 

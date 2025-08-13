@@ -498,8 +498,11 @@ export const useWizardStore = create<WizardState>()(
           };
           
           let response;
+          console.log(`💾 Auto-save triggered: currentApplicationId=${state.currentApplicationId}, title="${applicationTitle}"`);
+          
           if (state.currentApplicationId) {
             // Update existing application
+            console.log(`🔄 PATCH /api/applications/${state.currentApplicationId}`);
             response = await fetch(`/api/applications/${state.currentApplicationId}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -507,6 +510,7 @@ export const useWizardStore = create<WizardState>()(
             });
           } else {
             // Create new application
+            console.log(`➕ POST /api/applications - payload summary: keywords=[${keywords.join(', ')}], step=${applicationData.currentStep}, results=${applicationData.vacancies.length}`);
             response = await fetch('/api/applications', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -770,9 +774,11 @@ export const useWizardStore = create<WizardState>()(
         try {
           localStorage.removeItem('hh-search-cache');
           localStorage.removeItem('vacancy-cache');
-          // Keep global settings like titleFirstSearch, useExactPhrases etc.
+          // Clear the persisted Zustand state to ensure complete reset
+          localStorage.removeItem('job-wizard-storage');
+          console.log('localStorage cleared: hh-search-cache, vacancy-cache, job-wizard-storage');
         } catch (e) {
-          // Ignore localStorage errors
+          console.warn('Failed to clear localStorage:', e);
         }
         
         // Reset external refs
@@ -782,6 +788,18 @@ export const useWizardStore = create<WizardState>()(
           clearTimeout(debounceTimeoutRef);
           debounceTimeoutRef = null;
         }
+        
+        // Generate a completely fresh signature immediately
+        const tempState = {
+          selectedKeywordsCanonical: [],
+          filters: { ...defaultFilters }
+        };
+        
+        // Simple fresh signature generation for completely clean reset
+        const timestamp = Date.now().toString(36);
+        const randomPart = Math.random().toString(36).substring(2, 8);
+        const freshSignature = `search_new_${timestamp}_${randomPart}`;
+        console.log(`Fresh search signature generated: ${freshSignature}`);
         
         set({
           currentStep: 'keywords',
@@ -803,7 +821,7 @@ export const useWizardStore = create<WizardState>()(
           lastSearchKeywords: [],
           lastSearchFilters: { ...defaultFilters },
           searchNeedsRefresh: false,
-          currentSearchSignature: '',
+          currentSearchSignature: freshSignature,
           lastLoadedSignature: '',
           saveSignature: ''
         });
