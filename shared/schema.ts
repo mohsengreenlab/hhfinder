@@ -158,6 +158,10 @@ export const hhVacancyDetailSchema = z.object({
   employment: z.object({
     id: z.string(),
     name: z.string()
+  }).optional(),
+  experience: z.object({
+    id: z.string(),
+    name: z.string()
   }).optional()
 });
 

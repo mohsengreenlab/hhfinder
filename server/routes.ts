@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('🎯 Filter match response generated:');
       console.log('   Text parameter:', filters.text);
-      console.log('   Search fields:', filters.search_field);
+      console.log('   Search fields:', (filters as any).search_field);
 
       res.locals.addTiming('ai', aiDuration);
       res.locals.addTiming('total', Date.now() - startTime);
@@ -777,7 +777,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Work format and schedule information from HH.ru API
         working_time_modes: data.working_time_modes || [],
         schedule: data.schedule || null,
-        employment: data.employment || null
+        employment: data.employment || null,
+        experience: data.experience || null
       };
 
       // Cache by id + updated_at if available, or just id

@@ -10,7 +10,8 @@ import {
   MapPin,
   Monitor,
   Clock,
-  Calendar
+  Calendar,
+  GraduationCap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1273,6 +1274,15 @@ ${jobInfo.description}`;
                                 {index < vacancyDetail.working_time_modes!.length - 1 && ', '}
                               </span>
                             ))}
+                          </span>
+                        </div>
+                      )}
+                      {/* Experience Level */}
+                      {vacancyDetail.experience && (
+                        <div className="flex items-center" data-testid="experience-level">
+                          <GraduationCap className="mr-2 h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium">
+                            {vacancyDetail.experience.name}
                           </span>
                         </div>
                       )}
