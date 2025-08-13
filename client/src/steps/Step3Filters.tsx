@@ -627,7 +627,9 @@ export default function Step3Filters({ onBackToDashboard }: Step3FiltersProps) {
                   <SelectItem value="1" data-testid="period-1">1 day</SelectItem>
                   <SelectItem value="3" data-testid="period-3">3 days</SelectItem>
                   <SelectItem value="7" data-testid="period-7">1 week</SelectItem>
-                  <SelectItem value="30" data-testid="period-30">1 month</SelectItem>
+                  <SelectItem value="14" data-testid="period-14">2 weeks</SelectItem>
+                  <SelectItem value="21" data-testid="period-21">3 weeks</SelectItem>
+                  <SelectItem value="30" data-testid="period-30">1 month (maximum)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
