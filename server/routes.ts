@@ -773,7 +773,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         apply_alternate_url: data.apply_alternate_url,
         descriptionHtmlSanitized,
         key_skills: data.key_skills || [],
-        salary: data.salary
+        salary: data.salary,
+        // Work format and schedule information from HH.ru API
+        working_time_modes: data.working_time_modes || [],
+        schedule: data.schedule || null,
+        employment: data.employment || null
       };
 
       // Cache by id + updated_at if available, or just id

@@ -145,7 +145,20 @@ export const hhVacancyDetailSchema = z.object({
     from: z.number().nullable(),
     to: z.number().nullable(),
     currency: z.string()
-  }).nullable()
+  }).nullable(),
+  // Work format and schedule fields from HH.ru API
+  working_time_modes: z.array(z.object({
+    id: z.string(),
+    name: z.string()
+  })).optional(),
+  schedule: z.object({
+    id: z.string(),
+    name: z.string()
+  }).optional(),
+  employment: z.object({
+    id: z.string(),
+    name: z.string()
+  }).optional()
 });
 
 export const coverLetterRequestSchema = z.object({

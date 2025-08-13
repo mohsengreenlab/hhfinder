@@ -144,6 +144,10 @@ export interface HHVacancyDetail {
     to: number | null;
     currency: string;
   } | null;
+  // Work format and schedule fields from HH.ru API
+  working_time_modes?: Array<{ id: string; name: string }>;
+  schedule?: { id: string; name: string } | null;
+  employment?: { id: string; name: string } | null;
 }
 
 export interface CoverLetterRequest {

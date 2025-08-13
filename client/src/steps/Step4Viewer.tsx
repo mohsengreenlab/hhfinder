@@ -7,7 +7,10 @@ import {
   Home,
   CheckCircle,
   AlertCircle,
-  MapPin
+  MapPin,
+  Monitor,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1250,7 +1253,7 @@ ${jobInfo.description}`;
                     <h1 className="text-2xl font-bold text-slate-800 mb-2" data-testid="vacancy-title">
                       {vacancyDetail.name}
                     </h1>
-                    <div className="flex items-center text-slate-600 space-x-4">
+                    <div className="flex items-center text-slate-600 space-x-4 flex-wrap gap-y-2">
                       <span className="flex items-center" data-testid="vacancy-company">
                         <ExternalLink className="mr-2 h-4 w-4" />
                         {vacancyDetail.employer.name}
@@ -1259,6 +1262,34 @@ ${jobInfo.description}`;
                         <MapPin className="mr-2 h-4 w-4" />
                         {vacancyDetail.area.name}
                       </span>
+                      {/* Work Format Display */}
+                      {(vacancyDetail.working_time_modes && vacancyDetail.working_time_modes.length > 0) && (
+                        <div className="flex items-center" data-testid="work-format">
+                          <Monitor className="mr-2 h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium">
+                            {vacancyDetail.working_time_modes.map((mode: {id: string; name: string}, index: number) => (
+                              <span key={mode.id} className="inline-block">
+                                {mode.name}
+                                {index < vacancyDetail.working_time_modes!.length - 1 && ', '}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      )}
+                      {/* Employment Type */}
+                      {vacancyDetail.employment && (
+                        <div className="flex items-center" data-testid="employment-type">
+                          <Clock className="mr-2 h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium">{vacancyDetail.employment.name}</span>
+                        </div>
+                      )}
+                      {/* Schedule */}
+                      {vacancyDetail.schedule && (
+                        <div className="flex items-center" data-testid="schedule-type">
+                          <Calendar className="mr-2 h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium">{vacancyDetail.schedule.name}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
