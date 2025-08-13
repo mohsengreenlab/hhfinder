@@ -457,9 +457,9 @@ export const useWizardStore = create<WizardState>()(
         
         const state = get();
         
-        // Don't auto-save unless we've reached Step 4 and have search results
-        if (!state.hasReachedStep4 || state.selectedKeywords.length === 0 || state.searchResults.length === 0) {
-          console.log(`🚫 Auto-save skipped: hasReachedStep4=${state.hasReachedStep4}, keywords=${state.selectedKeywords.length}, results=${state.searchResults.length}`);
+        // Don't auto-save unless we've reached Step 4 with keywords (results can be loading)
+        if (!state.hasReachedStep4 || state.selectedKeywords.length === 0) {
+          console.log(`🚫 Auto-save skipped: hasReachedStep4=${state.hasReachedStep4}, keywords=${state.selectedKeywords.length}, step=${state.currentStep}`);
           return;
         }
         
@@ -503,8 +503,8 @@ export const useWizardStore = create<WizardState>()(
             suggestedKeywords: state.aiSuggestions.map(s => s.text),
             filters: state.filters,
             currentVacancyIndex: state.currentVacancyIndex,
-            vacancies: state.searchResults,
-            totalVacancies: state.totalFound,
+            vacancies: state.searchResults || [], // Empty array if still loading
+            totalVacancies: state.totalFound || 0,
             appliedVacancyIds: state.appliedVacancyIds,
             isCompleted: false
           };

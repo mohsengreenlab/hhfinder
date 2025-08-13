@@ -261,15 +261,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📝 POST /api/applications - User: ${user.username}, Body keys: [${Object.keys(req.body).join(', ')}]`);
       
-      // Check if the user has reached Step 4 (based on presence of search results)
-      const { searchResults, currentVacancyIndex, title, selectedKeywords } = req.body;
-      if (!searchResults || searchResults.length === 0) {
-        console.log(`❌ Cannot save - no search results. Results length: ${searchResults?.length || 0}`);
+      // Check if the user has reached Step 4 (based on currentStep being 4)
+      const { searchResults, currentVacancyIndex, title, selectedKeywords, currentStep } = req.body;
+      if (currentStep !== 4) {
+        console.log(`❌ Cannot save - not on Step 4. Current step: ${currentStep}`);
         return res.status(400).json({ 
           error: "Cannot save before reaching Step 4",
           message: "Searches are only saved once you reach the results viewer in Step 4."
         });
       }
+      
+      console.log(`✅ Step 4 validation passed - currentStep: ${currentStep}, keywords: [${selectedKeywords?.join(', ') || 'none'}], results: ${searchResults?.length || 0}`);
+      
+      // Allow saving even if search results haven't loaded yet (they come async)
       
       const appData = insertJobApplicationSchema.parse({ ...req.body, userId: user.id });
       
