@@ -12,6 +12,49 @@ const genAI = new GoogleGenerativeAI(apiKey);
 export class AIClient {
   private model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   private proModel = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+
+  private async waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      console.log(`🕒 Rate limiting: waiting ${waitTime}ms before next AI request`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
+  private async makeAIRequest<T>(
+    requestFn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    await this.waitForRateLimit();
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error: any) {
+        const isRetryable = error?.status === 503 || error?.status === 429 || error?.status === 500;
+        
+        if (!isRetryable || attempt === maxRetries) {
+          throw error;
+        }
+        
+        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+        console.log(`⚠️  AI request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+        console.log(`Error: ${error?.status} - ${error?.message}`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw new Error('Max retries exceeded');
+  }
 
   async generateRussianSeedTerms(userInput: string): Promise<{
     exactPhrases: string[];
@@ -44,7 +87,9 @@ export class AIClient {
 Только JSON, без объяснений.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.makeAIRequest(async () => {
+        return await this.model.generateContent(prompt);
+      });
       const response = result.response.text().trim();
       
       // Extract JSON from response
@@ -104,7 +149,9 @@ export class AIClient {
 Только JSON, без объяснений.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.makeAIRequest(async () => {
+        return await this.model.generateContent(prompt);
+      });
       const response = result.response.text().trim();
       
       // Extract JSON from response
@@ -340,7 +387,9 @@ ${request.userProfile ? `Applicant profile: ${request.userProfile}` : ''}
       // Use a simpler prompt format that works better with Gemini
       const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
       
-      const result = await this.model.generateContent(fullPrompt);
+      const result = await this.makeAIRequest(async () => {
+        return await this.model.generateContent(fullPrompt);
+      });
       return result.response.text().trim();
     } catch (error) {
       console.error('Cover letter generation failed:', error);
