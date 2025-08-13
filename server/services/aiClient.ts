@@ -62,29 +62,97 @@ export class AIClient {
     weakAmbiguous: string[];
     allowedEnglishAcronyms: string[];
   }> {
+    // Stage 1: Generate job-relevant keywords
+    const stage1Keywords = await this.generateJobKeywords(userInput);
+    
+    // Stage 2: Validate they are actual job titles
+    const validatedKeywords = await this.validateJobTitles(stage1Keywords);
+    
+    return validatedKeywords;
+  }
+
+  private async generateJobKeywords(userInput: string): Promise<string[]> {
     const prompt = `
-Ты специалист по поиску работы на HH.ru. На основе запроса пользователя "${userInput}", 
-создай компактный список русских терминов для поиска вакансий, плюс несколько разрешённых английских технических аббревиатур.
+Ты эксперт по трудовому рынку России и сайту HH.ru. Пользователь хочет найти работу: "${userInput}"
 
-Требования:
-- В основном русские термины (≥90%)
-- Английские только для стандартных технических аббревиатур: SQL, JS, TS, React, Node.js, Docker, AWS, GCP, ML, NLP, etc.
-- НЕ используй общие английские названия должностей, используй русские эквиваленты
-- Краткие термины/фразы, без длинных предложений
-- Всего под 20 пунктов
+Создай список ключевых слов для поиска вакансий на русском языке:
 
-Категории (выдавай в формате JSON):
+ПРАВИЛА:
+1. ТОЛЬКО русские названия профессий и должностей
+2. Исключение: технические термины (Python, JavaScript, SQL, React, Node.js, Docker, AWS, etc.)
+3. НЕ используй английские названия должностей - переводи на русский
+4. Фокусируйся на реальных названиях вакансий как на HH.ru
+5. Включай синонимы и смежные профессии
+
+Примеры правильных терминов:
+- "программист Python" вместо "Python developer"  
+- "инженер-программист" вместо "software engineer"
+- "фронтенд-разработчик" вместо "frontend developer"
+- "менеджер по продажам" вместо "sales manager"
+
+Верни ТОЛЬКО массив строк в JSON формате:
+["термин 1", "термин 2", "термин 3"]
+
+Максимум 15 терминов.`;
+
+    try {
+      const result = await this.makeAIRequest(async () => {
+        return await this.model.generateContent(prompt);
+      });
+      const response = result.response.text().trim();
+      
+      // Extract JSON from response
+      let jsonText = response;
+      if (response.includes('```json')) {
+        jsonText = response.split('```json')[1].split('```')[0].trim();
+      } else if (response.includes('```')) {
+        jsonText = response.split('```')[1].split('```')[0].trim();
+      }
+      
+      const parsed = JSON.parse(jsonText);
+      return Array.isArray(parsed) ? parsed.slice(0, 15) : [];
+      
+    } catch (error) {
+      console.error('Stage 1 keyword generation failed:', error);
+      // Fallback to predefined keywords
+      const input = userInput.toLowerCase().trim();
+      return this.getFallbackJobKeywords(input);
+    }
+  }
+
+  private async validateJobTitles(keywords: string[]): Promise<{
+    exactPhrases: string[];
+    strongSynonyms: string[];
+    weakAmbiguous: string[];
+    allowedEnglishAcronyms: string[];
+  }> {
+    if (keywords.length === 0) {
+      return { exactPhrases: [], strongSynonyms: [], weakAmbiguous: [], allowedEnglishAcronyms: [] };
+    }
+
+    const prompt = `
+Ты эксперт по вакансиям на HH.ru. Проанализируй список терминов и определи, какие из них являются реальными названиями профессий/должностей.
+
+Термины: ${JSON.stringify(keywords)}
+
+Классифицируй каждый термин:
+- exactPhrases: точные названия должностей (например: "программист", "менеджер", "бухгалтер")
+- strongSynonyms: сильные синонимы профессий (например: "разработчик", "девелопер", "кодер")  
+- weakAmbiguous: слабые/неоднозначные (например: "специалист", "консультант")
+- allowedEnglishAcronyms: технические термины (Python, SQL, React, etc.)
+
+ПРАВИЛА:
+1. Отбрасывай общие слова ("работа", "должность", "вакансия")
+2. Отбрасывай описательные фразы ("я хочу", "найти работу")
+3. Оставляй только конкретные профессии и технические навыки
+
+Верни JSON:
 {
-  "exactPhrases": ["точная профессия 1", "точная профессия 2"],
-  "strongSynonyms": ["сильный синоним 1", "сильный синоним 2"], 
-  "weakAmbiguous": ["слабый/неоднозначный 1"],
-  "allowedEnglishAcronyms": ["SQL", "React"]
-}
-
-Примеры разрешённых английских терминов: SQL, JavaScript, TypeScript, React, Node.js, Docker, Kubernetes, AWS, GCP, ML, NLP, ETL
-Примеры НЕ разрешённых (используй русские): "software engineer" → "инженер-программист", "frontend developer" → "фронтенд-разработчик"
-
-Только JSON, без объяснений.`;
+  "exactPhrases": ["точная профессия 1"],
+  "strongSynonyms": ["синоним 1"], 
+  "weakAmbiguous": ["неоднозначный 1"],
+  "allowedEnglishAcronyms": ["Python", "SQL"]
+}`;
 
     try {
       const result = await this.makeAIRequest(async () => {
@@ -102,28 +170,75 @@ export class AIClient {
       
       const parsed = JSON.parse(jsonText);
       
-      // Validate structure and clean data
-      const result_data = {
+      return {
         exactPhrases: (parsed.exactPhrases || []).slice(0, 8),
         strongSynonyms: (parsed.strongSynonyms || []).slice(0, 8),
         weakAmbiguous: (parsed.weakAmbiguous || []).slice(0, 5),
         allowedEnglishAcronyms: (parsed.allowedEnglishAcronyms || []).slice(0, 5)
       };
       
-      return result_data;
     } catch (error) {
-      console.error('AI Russian seed generation failed:', error);
-      // Enhanced fallback with common job-related terms
-      const input = userInput.toLowerCase().trim();
-      const fallbackTerms = this.generateFallbackKeywords(input);
-      
-      return {
-        exactPhrases: fallbackTerms.exact,
-        strongSynonyms: fallbackTerms.synonyms,
-        weakAmbiguous: fallbackTerms.weak,
-        allowedEnglishAcronyms: fallbackTerms.english
-      };
+      console.error('Stage 2 job title validation failed:', error);
+      // Fallback: manually categorize keywords
+      return this.categorizeKeywordsFallback(keywords);
     }
+  }
+
+  private getFallbackJobKeywords(input: string): string[] {
+    const jobMappings: Record<string, string[]> = {
+      'официант': ['официант', 'официантка', 'waiter', 'персонал ресторана', 'обслуживающий персонал', 'работник зала'],
+      'программист': ['программист', 'разработчик', 'инженер-программист', 'девелопер', 'кодер', 'software engineer'],
+      'тестировщик': ['тестировщик', 'QA инженер', 'тестер', 'специалист по тестированию', 'QA'],
+      'менеджер': ['менеджер', 'руководитель', 'управляющий', 'координатор', 'администратор'],
+      'продавец': ['продавец', 'менеджер по продажам', 'торговый представитель', 'консультант'],
+      'дизайнер': ['дизайнер', 'графический дизайнер', 'веб-дизайнер', 'художник'],
+      'аналитик': ['аналитик', 'бизнес-аналитик', 'системный аналитик', 'исследователь']
+    };
+
+    for (const [key, terms] of Object.entries(jobMappings)) {
+      if (input.includes(key)) {
+        return terms;
+      }
+    }
+
+    return [input];
+  }
+
+  private categorizeKeywordsFallback(keywords: string[]): {
+    exactPhrases: string[];
+    strongSynonyms: string[];
+    weakAmbiguous: string[];
+    allowedEnglishAcronyms: string[];
+  } {
+    const result = {
+      exactPhrases: [] as string[],
+      strongSynonyms: [] as string[],
+      weakAmbiguous: [] as string[],
+      allowedEnglishAcronyms: [] as string[]
+    };
+
+    const technicalTerms = ['Python', 'JavaScript', 'SQL', 'React', 'Node.js', 'Docker', 'AWS', 'GCP', 'ML', 'NLP'];
+    const exactJobs = ['программист', 'официант', 'менеджер', 'дизайнер', 'аналитик', 'тестировщик', 'продавец'];
+    const strongSynonyms = ['разработчик', 'девелопер', 'waiter', 'консультант', 'руководитель'];
+    const weakTerms = ['специалист', 'сотрудник', 'эксперт', 'работник'];
+
+    for (const keyword of keywords) {
+      const lower = keyword.toLowerCase();
+      
+      if (technicalTerms.some(tech => keyword.includes(tech))) {
+        result.allowedEnglishAcronyms.push(keyword);
+      } else if (exactJobs.some(job => lower.includes(job))) {
+        result.exactPhrases.push(keyword);
+      } else if (strongSynonyms.some(syn => lower.includes(syn))) {
+        result.strongSynonyms.push(keyword);
+      } else if (weakTerms.some(weak => lower.includes(weak))) {
+        result.weakAmbiguous.push(keyword);
+      } else {
+        result.strongSynonyms.push(keyword); // Default to strong synonyms
+      }
+    }
+
+    return result;
   }
 
   // AI relevance filtering for keywords
@@ -433,79 +548,7 @@ Best regards,
 [Your Name]`;
   }
 
-  private generateFallbackKeywords(input: string): {
-    exact: string[];
-    synonyms: string[];
-    weak: string[];
-    english: string[];
-  } {
-    const result = {
-      exact: [input],
-      synonyms: [] as string[],
-      weak: [] as string[],
-      english: [] as string[]
-    };
 
-    // Common job term mappings for when AI is unavailable
-    const jobMappings: Record<string, { synonyms: string[]; weak: string[]; english: string[] }> = {
-      'разработчик': {
-        synonyms: ['программист', 'developer', 'инженер-программист'],
-        weak: ['IT-специалист', 'технический специалист'],
-        english: ['JS', 'Python', 'React']
-      },
-      'тестировщик': {
-        synonyms: ['QA', 'тестер', 'инженер по тестированию'],
-        weak: ['контроль качества', 'аналитик'],
-        english: ['QA', 'Selenium', 'Postman']
-      },
-      'аналитик': {
-        synonyms: ['analyst', 'бизнес-аналитик', 'системный аналитик'],
-        weak: ['исследователь', 'консультант'],
-        english: ['SQL', 'Excel', 'BI']
-      },
-      'дизайнер': {
-        synonyms: ['designer', 'графический дизайнер', 'веб-дизайнер'],
-        weak: ['художник', 'креативщик'],
-        english: ['UI', 'UX', 'Figma']
-      },
-      'менеджер': {
-        synonyms: ['manager', 'руководитель', 'координатор'],
-        weak: ['управляющий', 'администратор'],
-        english: ['PM', 'CRM']
-      },
-      'официант': {
-        synonyms: ['waiter', 'обслуживающий персонал', 'сервер'],
-        weak: ['работник ресторана', 'персонал зала'],
-        english: []
-      },
-      'продавец': {
-        synonyms: ['менеджер по продажам', 'консультант', 'sales'],
-        weak: ['торговый представитель', 'специалист по продажам'],
-        english: ['CRM']
-      }
-    };
-
-    // Find matching terms
-    for (const [key, mapping] of Object.entries(jobMappings)) {
-      if (input.includes(key)) {
-        result.synonyms.push(...mapping.synonyms);
-        result.weak.push(...mapping.weak);
-        result.english.push(...mapping.english);
-        break;
-      }
-    }
-
-    // If no specific mapping found, add some generic terms
-    if (result.synonyms.length === 0) {
-      if (input.includes('инженер')) {
-        result.synonyms.push('специалист', 'технический специалист');
-      } else if (input.includes('специалист')) {
-        result.synonyms.push('эксперт', 'консультант');
-      }
-    }
-
-    return result;
-  }
 }
 
 export const aiClient = new AIClient();
