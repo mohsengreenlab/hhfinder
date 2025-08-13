@@ -62,129 +62,59 @@ export class AIClient {
     weakAmbiguous: string[];
     allowedEnglishAcronyms: string[];
   }> {
-    // Stage 1: Generate job-relevant keywords
-    const stage1Keywords = await this.generateJobKeywords(userInput);
+    // Single-stage: Generate and categorize keywords directly
+    const keywords = await this.generateJobKeywords(userInput);
     
-    // Stage 2: Validate they are actual job titles
-    const validatedKeywords = await this.validateJobTitles(stage1Keywords);
-    
-    return validatedKeywords;
+    // Categorize without additional AI calls
+    return this.categorizeKeywordsFallback(keywords);
   }
 
   private async generateJobKeywords(userInput: string): Promise<string[]> {
-    const prompt = `
-Ты эксперт по трудовому рынку России и сайту HH.ru. Пользователь хочет найти работу: "${userInput}"
+    // Ultra-simplified prompt focused on direct translation
+    const prompt = `Переведи "${userInput}" в русские названия профессий для поиска работы на HH.ru:
 
-Создай список ключевых слов для поиска вакансий на русском языке:
+["тестировщик", "QA инженер", "тестер"]
 
-ПРАВИЛА:
-1. ТОЛЬКО русские названия профессий и должностей
-2. Исключение: технические термины (Python, JavaScript, SQL, React, Node.js, Docker, AWS, etc.)
-3. НЕ используй английские названия должностей - переводи на русский
-4. Фокусируйся на реальных названиях вакансий как на HH.ru
-5. Включай синонимы и смежные профессии
+Твой ответ для "${userInput}":`;
 
-Примеры правильных терминов:
-- "программист Python" вместо "Python developer"  
-- "инженер-программист" вместо "software engineer"
-- "фронтенд-разработчик" вместо "frontend developer"
-- "менеджер по продажам" вместо "sales manager"
-
-Верни ТОЛЬКО массив строк в JSON формате:
-["термин 1", "термин 2", "термин 3"]
-
-Максимум 15 терминов.`;
+    console.log(`🎯 Generating keywords for: "${userInput}"`);
+    console.log(`📝 Prompt: ${prompt.substring(0, 200)}...`);
 
     try {
       const result = await this.makeAIRequest(async () => {
         return await this.model.generateContent(prompt);
       });
       const response = result.response.text().trim();
+      console.log(`✅ AI response: ${response}`);
       
-      // Extract JSON from response
+      // Extract JSON array from response
       let jsonText = response;
-      if (response.includes('```json')) {
-        jsonText = response.split('```json')[1].split('```')[0].trim();
-      } else if (response.includes('```')) {
-        jsonText = response.split('```')[1].split('```')[0].trim();
+      
+      // Handle various response formats
+      if (response.includes('[') && response.includes(']')) {
+        const start = response.indexOf('[');
+        const end = response.lastIndexOf(']') + 1;
+        jsonText = response.substring(start, end);
       }
       
       const parsed = JSON.parse(jsonText);
-      return Array.isArray(parsed) ? parsed.slice(0, 15) : [];
+      const keywords = Array.isArray(parsed) ? parsed.slice(0, 15) : [];
+      console.log(`🎯 Extracted keywords: ${keywords.join(', ')}`);
+      return keywords;
       
     } catch (error) {
       console.error('Stage 1 keyword generation failed:', error);
-      // Fallback to predefined keywords
-      const input = userInput.toLowerCase().trim();
-      return this.getFallbackJobKeywords(input);
+      // Use intelligent fallback
+      const fallbackKeywords = this.getFallbackJobKeywords(userInput.toLowerCase().trim());
+      console.log(`🔄 Using fallback keywords: ${fallbackKeywords.join(', ')}`);
+      return fallbackKeywords;
     }
   }
 
-  private async validateJobTitles(keywords: string[]): Promise<{
-    exactPhrases: string[];
-    strongSynonyms: string[];
-    weakAmbiguous: string[];
-    allowedEnglishAcronyms: string[];
-  }> {
-    if (keywords.length === 0) {
-      return { exactPhrases: [], strongSynonyms: [], weakAmbiguous: [], allowedEnglishAcronyms: [] };
-    }
 
-    const prompt = `
-Ты эксперт по вакансиям на HH.ru. Проанализируй список терминов и определи, какие из них являются реальными названиями профессий/должностей.
-
-Термины: ${JSON.stringify(keywords)}
-
-Классифицируй каждый термин:
-- exactPhrases: точные названия должностей (например: "программист", "менеджер", "бухгалтер")
-- strongSynonyms: сильные синонимы профессий (например: "разработчик", "девелопер", "кодер")  
-- weakAmbiguous: слабые/неоднозначные (например: "специалист", "консультант")
-- allowedEnglishAcronyms: технические термины (Python, SQL, React, etc.)
-
-ПРАВИЛА:
-1. Отбрасывай общие слова ("работа", "должность", "вакансия")
-2. Отбрасывай описательные фразы ("я хочу", "найти работу")
-3. Оставляй только конкретные профессии и технические навыки
-
-Верни JSON:
-{
-  "exactPhrases": ["точная профессия 1"],
-  "strongSynonyms": ["синоним 1"], 
-  "weakAmbiguous": ["неоднозначный 1"],
-  "allowedEnglishAcronyms": ["Python", "SQL"]
-}`;
-
-    try {
-      const result = await this.makeAIRequest(async () => {
-        return await this.model.generateContent(prompt);
-      });
-      const response = result.response.text().trim();
-      
-      // Extract JSON from response
-      let jsonText = response;
-      if (response.includes('```json')) {
-        jsonText = response.split('```json')[1].split('```')[0].trim();
-      } else if (response.includes('```')) {
-        jsonText = response.split('```')[1].split('```')[0].trim();
-      }
-      
-      const parsed = JSON.parse(jsonText);
-      
-      return {
-        exactPhrases: (parsed.exactPhrases || []).slice(0, 8),
-        strongSynonyms: (parsed.strongSynonyms || []).slice(0, 8),
-        weakAmbiguous: (parsed.weakAmbiguous || []).slice(0, 5),
-        allowedEnglishAcronyms: (parsed.allowedEnglishAcronyms || []).slice(0, 5)
-      };
-      
-    } catch (error) {
-      console.error('Stage 2 job title validation failed:', error);
-      // Fallback: manually categorize keywords
-      return this.categorizeKeywordsFallback(keywords);
-    }
-  }
 
   private getFallbackJobKeywords(input: string): string[] {
+    // Enhanced mappings with exact HH.ru terminology
     const jobMappings: Record<string, string[]> = {
       'официант': [
         'официант', 'официантка', 'бармен', 'барменша', 'персонал ресторана', 
@@ -197,8 +127,23 @@ export class AIClient {
       ],
       'тестировщик': [
         'тестировщик', 'QA инженер', 'тестер', 'специалист по тестированию', 
-        'тест-аналитик', 'automation QA', 'manual QA', 'QA engineer', 
+        'тестировщик программного обеспечения', 'QA', 'automation QA', 'manual QA', 
         'инженер по качеству', 'тестировщик ПО'
+      ],
+      'software tester': [
+        'тестировщик программного обеспечения', 'QA', 'тестер', 'тестировщик', 
+        'QA инженер', 'специалист по тестированию', 'инженер по качеству',
+        'automation QA', 'manual QA', 'тестировщик ПО'
+      ],
+      'tester': [
+        'тестировщик', 'QA', 'тестер', 'QA инженер', 'специалист по тестированию',
+        'тестировщик программного обеспечения', 'инженер по качеству', 'тестировщик ПО',
+        'automation QA', 'manual QA'
+      ],
+      'qa': [
+        'QA', 'QA инженер', 'тестировщик', 'тестер', 'специалист по тестированию',
+        'инженер по качеству', 'тестировщик ПО', 'automation QA', 'manual QA',
+        'тестировщик программного обеспечения'
       ],
       'менеджер': [
         'менеджер', 'руководитель', 'управляющий', 'координатор', 'администратор',
