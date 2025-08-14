@@ -441,8 +441,8 @@ ${jobInfo.description}`;
       const baseParams = { ...hhFilters };
       delete baseParams.search_field; // Remove any existing search_field
 
-      const per_page = 50; // Fetch 50 per tier
-      const startIndex = currentPage * 50; // Calculate where to start in merged results
+      const per_page = 100; // Fetch 100 per tier (HH.ru maximum)
+      const startIndex = currentPage * 100; // Calculate where to start in merged results
       
       const tierResults: { tier: string; items: any[]; count: number; url: string }[] = [];
 
@@ -534,138 +534,101 @@ ${jobInfo.description}`;
         return score;
       };
 
-      // Tier A: Title search (search_field=name)
-      const titleParams = new URLSearchParams();
-      Object.entries(baseParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            value.forEach(v => titleParams.append(key, v.toString()));
-          } else {
-            titleParams.set(key, value.toString());
+      // Function to fetch multiple pages for a tier
+      const fetchTierPages = async (searchField: string, tierName: string, maxPages = 3) => {
+        const allItems: any[] = [];
+        let totalFound = 0;
+        
+        for (let page = 0; page < maxPages; page++) {
+          const params = new URLSearchParams();
+          Object.entries(baseParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              if (Array.isArray(value)) {
+                value.forEach(v => params.append(key, v.toString()));
+              } else {
+                params.set(key, value.toString());
+              }
+            }
+          });
+          params.set('search_field', searchField);
+          params.set('page', page.toString());
+          params.set('per_page', per_page.toString());
+
+          const url = `/api/vacancies?${params.toString()}`;
+          if (page === 0 && filters.enableDebugMode) {
+            console.log(`🔍 Tier ${tierName} URL:`, url);
+          }
+          
+          try {
+            const response = await fetch(url, {
+              headers: {
+                'X-Search-Run-Id': currentSearchSignature,
+                'X-Client-Signature': currentSearchSignature
+              }
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (page === 0) {
+                totalFound = data.found || 0;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Step4: ${tierName} tier echo - client: ${data.debugEcho?.clientSignature}, server: ${data.debugEcho?.serverSignature}`);
+                  console.log(`Step4: ${tierName} tier keywords: ${data.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
+                }
+              }
+              
+              if (data.items && data.items.length > 0) {
+                allItems.push(...data.items);
+              } else {
+                // No more results on this page, stop fetching
+                break;
+              }
+            } else {
+              console.warn(`Failed to fetch page ${page} for ${tierName} tier:`, response.status);
+              break;
+            }
+          } catch (error) {
+            console.warn(`Error fetching page ${page} for ${tierName} tier:`, error);
+            break;
+          }
+          
+          // Add small delay between requests to be respectful to API
+          if (page < maxPages - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
-      });
-      titleParams.set('search_field', 'name');
-      titleParams.set('page', '0');
-      titleParams.set('per_page', per_page.toString());
-
-      const titleUrl = `/api/vacancies?${titleParams.toString()}`;
-      if (filters.enableDebugMode) {
-        console.log('🔍 Tier A (Title) URL:', titleUrl);
-      }
-      
-      const titleResponse = await fetch(titleUrl, {
-        headers: {
-          'X-Search-Run-Id': currentSearchSignature,
-          'X-Client-Signature': currentSearchSignature
-        }
-      });
-      if (titleResponse.ok) {
-        const titleData = await titleResponse.json();
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Step4: Title tier echo - client: ${titleData.debugEcho?.clientSignature}, server: ${titleData.debugEcho?.serverSignature}`);
-          console.log(`Step4: Title tier keywords: ${titleData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
-        }
-        
-        tierResults.push({
-          tier: 'Title',
-          items: titleData.items || [],
-          count: titleData.found || 0,
-          url: titleUrl
-        });
-      }
+        return { items: allItems, count: totalFound };
+      };
 
-      // Tier B: Description search (search_field=description)  
-      const descParams = new URLSearchParams();
-      Object.entries(baseParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            value.forEach(v => descParams.append(key, v.toString()));
-          } else {
-            descParams.set(key, value.toString());
-          }
-        }
+      // Tier A: Title search (search_field=name) - fetch up to 3 pages
+      const titleResult = await fetchTierPages('name', 'Title', 3);
+      tierResults.push({
+        tier: 'Title',
+        items: titleResult.items,
+        count: titleResult.count,
+        url: 'Title search (multi-page)'
       });
-      descParams.set('search_field', 'description');
-      descParams.set('page', '0');
-      descParams.set('per_page', per_page.toString());
 
-      const descUrl = `/api/vacancies?${descParams.toString()}`;
-      if (filters.enableDebugMode) {
-        console.log('🔍 Tier B (Description) URL:', descUrl);
-      }
-
-      const descResponse = await fetch(descUrl, {
-        headers: {
-          'X-Search-Run-Id': currentSearchSignature,
-          'X-Client-Signature': currentSearchSignature
-        }
+      // Tier B: Description search (search_field=description) - fetch up to 2 pages
+      const descResult = await fetchTierPages('description', 'Description', 2);
+      tierResults.push({
+        tier: 'Description',
+        items: descResult.items,
+        count: descResult.count,
+        url: 'Description search (multi-page)'
       });
-      if (descResponse.ok) {
-        const descData = await descResponse.json();
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Step4: Description tier echo - client: ${descData.debugEcho?.clientSignature}, server: ${descData.debugEcho?.serverSignature}`);
-          console.log(`Step4: Description tier keywords: ${descData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
-        }
-        
-        tierResults.push({
-          tier: 'Description',
-          items: descData.items || [],
-          count: descData.found || 0,
-          url: descUrl
-        });
-      }
 
-      // Tier C: Skills search (with optional company_name fallback)
-      const skillsParams = new URLSearchParams();
-      Object.entries(baseParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            value.forEach(v => skillsParams.append(key, v.toString()));
-          } else {
-            skillsParams.set(key, value.toString());
-          }
-        }
+      // Tier C: Skills search (with optional company_name fallback) - fetch up to 2 pages
+      const skillsSearchField = (isSafeMode || filters.useCompanyFallback) ? 'company_name' : 'name';
+      const skillsResult = await fetchTierPages(skillsSearchField, 'Skills', 2);
+      tierResults.push({
+        tier: 'Skills',
+        items: skillsResult.items,
+        count: skillsResult.count,
+        url: `Skills search (${skillsSearchField}, multi-page)`
       });
-      
-      // Use company_name fallback only if enabled (Safe Mode forces company_name for broader results)
-      if (isSafeMode || filters.useCompanyFallback) {
-        skillsParams.set('search_field', 'company_name'); // Fallback since HH.ru doesn't support skills directly
-      } else {
-        // Pure skills search without company bias - will rely entirely on client-side key_skills matching
-        skillsParams.set('search_field', 'name'); // Use name but rely on client-side skills detection
-      }
-      skillsParams.set('page', '0');
-      skillsParams.set('per_page', per_page.toString());
-
-      const skillsUrl = `/api/vacancies?${skillsParams.toString()}`;
-      if (filters.enableDebugMode) {
-        console.log('🔍 Tier C (Skills/Company) URL:', skillsUrl);
-      }
-
-      const skillsResponse = await fetch(skillsUrl, {
-        headers: {
-          'X-Search-Run-Id': currentSearchSignature,
-          'X-Client-Signature': currentSearchSignature
-        }
-      });
-      if (skillsResponse.ok) {
-        const skillsData = await skillsResponse.json();
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Step4: Skills tier echo - client: ${skillsData.debugEcho?.clientSignature}, server: ${skillsData.debugEcho?.serverSignature}`);
-          console.log(`Step4: Skills tier keywords: ${skillsData.debugEcho?.resolvedKeywords?.join(',') || 'none'}`);
-        }
-        
-        tierResults.push({
-          tier: 'Skills',
-          items: skillsData.items || [],
-          count: skillsData.found || 0,
-          url: skillsUrl
-        });
-      }
 
       // Apply hard filtering and enhanced scoring to all results  
       let excludedCount = 0;
@@ -823,6 +786,11 @@ ${jobInfo.description}`;
         // First page - replace results and mark search as completed
         setSearchResults(vacanciesData.items, vacanciesData.found);
         markSearchCompleted();
+        
+        // Log improvement for user visibility
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚀 Multi-page fetching enabled: Got ${vacanciesData.items.length} results from ${vacanciesData.tiers || 3} tiers (up to 700 total possible)`);
+        }
       } else {
         // Subsequent pages - append results (avoid duplicates)
         const currentResults = searchResults || [];
