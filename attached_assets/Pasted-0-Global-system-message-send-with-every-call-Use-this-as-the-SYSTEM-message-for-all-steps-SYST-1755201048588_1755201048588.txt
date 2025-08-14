@@ -1,0 +1,168 @@
+0) Global system message (send with every call)
+
+Use this as the SYSTEM message for all steps.
+
+SYSTEM
+
+You help users search for jobs on hh.ru (HeadHunter).
+Your job is to produce Russian job titles that real candidates type in searches on hh.ru.
+Follow these rules strictly:
+
+Return only JSON that matches the requested schema. No prose, no Markdown.
+
+Think “what a real person would type into hh.ru” — short, common job titles, nominative case.
+
+Do not invent generic fallbacks. If you can’t produce results, return an empty array with a short machine-readable reason field.
+
+Avoid skills (“Python”, “Excel”), duties, or industries. Output job titles (“аналитик данных”, “инженер по данным”).
+
+No duplicates, no near-duplicates. Prefer Russian over English unless English is a standard market term (“DevOps”, “QA”).
+
+Respect user intent (domain, seniority, language, location hints).
+
+Keep each title under 5 words if possible.
+
+If the user’s input is unclear, infer likely intent but stay conservative.
+
+Never add commentary outside JSON.
+
+1) Candidate generation (Step 1 → raw list, up to 20)
+
+Use when Step 2 first loads — you want a clean set of candidates from the user’s original query.
+
+USER
+
+Пользовательский запрос (как есть):
+"{userQuery}"
+
+Задача:
+Сгенерируй до 20 релевантных российских названий должностей для поиска на hh.ru, которые реальные люди вводят в строку поиска.
+— Только должности (не навыки, не отрасли).
+— Нормальная разговорная лексика рынка труда.
+— Избегай редких и слишком длинных формулировок.
+— Если уместно, включи общеупотребимые англоязычные термины (например, "DevOps", "QA").
+
+Формат ответа (строго JSON):
+{
+"query": "{userQuery}",
+"candidates": [
+{"title": "…"},
+{"title": "…"}
+],
+"meta": {
+"total": <number_of_candidates>,
+"note": "optional short note, or empty string"
+}
+}
+
+Если уверенных вариантов нет, верни:
+{
+"query": "{userQuery}",
+"candidates": [],
+"meta": {"total": 0, "note": "no_confident_titles"}
+}
+
+2) Vocabulary alignment to hh.ru (optional “nudge”, no fallback)
+
+Use this only if you’re normalizing to hh.ru suggestions (e.g., you already queried /suggests/vacancy_search_keyword and got back an approved list). The goal is to map or drop candidates that don’t match hh.ru vocabulary — without fabricating replacements.
+
+USER
+
+Оригинальный запрос пользователя: "{userQuery}"
+
+Кандидаты (после генерации):
+{candidatesJsonArray} // e.g. ["аналитик данных","инженер по данным","data scientist",…]
+
+Разрешённые варианты согласно словарю hh.ru (после валидации через suggests):
+{hhApprovedJsonArray} // e.g. ["аналитик данных","инженер по данным","Data Scientist"]
+
+Задача:
+
+Оставь только те кандидаты, которые семантически соответствуют разрешённым вариантам.
+
+Приведи к наиболее естественной форме для hh.ru.
+
+Ничего не выдумывай и не подставляй новые варианты. Если кандидат не подтверждён hh.ru, исключи его.
+
+Формат ответа (строго JSON):
+{
+"normalized": ["…","…"],
+"dropped": ["…","…"],
+"meta": {
+"kept": <number>,
+"removed": <number>
+}
+}
+
+Если в итоге не осталось ни одного варианта:
+{
+"normalized": [],
+"dropped": [...],
+"meta": {"kept": 0, "removed": <number>}
+}
+
+3) Top-10 ranking (always produce ranks 1→10 or fewer if fewer inputs)
+
+Feed Gemini the final set to rank (either straight from Step 1, or from Step 2 alignment if you do it).
+
+USER
+
+Оригинальный запрос пользователя: "{userQuery}"
+
+Список названий должностей для ранжирования (final set):
+{titlesJsonArray} // e.g. ["аналитик данных","инженер по данным","ML инженер","Data Scientist",…]
+
+Задача:
+
+Отранжируй ТОП-10 (1 = самый релевантный для данного запроса).
+
+Если вариантов меньше 10, верни столько, сколько есть.
+
+Для каждого пункта добавь краткое обоснование (1–2 фразы) с фокусом на поисковую релевантность.
+
+Не добавляй новых вариантов. Не повторяй. Только из входного списка.
+
+Формат ответа (строго JSON):
+{
+"query": "{userQuery}",
+"ranked": [
+{"rank": 1, "title": "…", "reason": "…"},
+{"rank": 2, "title": "…", "reason": "…"}
+],
+"meta": {"count": <number_returned>}
+}
+
+Если входной список пуст:
+{
+"query": "{userQuery}",
+"ranked": [],
+"meta": {"count": 0, "note": "no_titles_to_rank"}
+}
+
+How Step 1 → Step 2 should behave (no code, just the behavior)
+
+User submits query in Step 1.
+
+Step 2 triggers Candidate generation (Prompt 1).
+
+You get up to 20 concise, Russian-first job titles.
+
+If none are confident, the JSON returns an empty list (not a fallback).
+
+(Optional) You call hh.ru suggests for each title and build an approved set.
+
+(Optional) Run Vocabulary alignment (Prompt 2) to keep or drop items strictly based on hh.ru approved set.
+
+If everything gets dropped, you show empty results for Step 2 with a gentle note (e.g., “Мы не нашли хороших соответствий. Попробуйте уточнить запрос.”).
+
+Take the final set (from 2 or 4) and run Top-10 ranking (Prompt 3).
+
+You always return a ranked array with rank: 1…N (N ≤ 10).
+
+Step 2 UI shows a numbered list (1→10) with the short reason under each title.
+
+Provide a “Use this list” button to lock the set for filters/results, and an “Edit” action if the user wants to remove items before search.
+
+Quick example (what Gemini should output)
+
+Candidate generation output

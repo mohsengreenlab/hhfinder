@@ -56,59 +56,230 @@ export class AIClient {
     throw new Error('Max retries exceeded');
   }
 
+  // New 3-step structured approach
   async generateRussianSeedTerms(userInput: string): Promise<{
     exactPhrases: string[];
     strongSynonyms: string[];
     weakAmbiguous: string[];
     allowedEnglishAcronyms: string[];
   }> {
-    // Single-stage: Generate and categorize keywords directly
-    const keywords = await this.generateJobKeywords(userInput);
-    
-    // Categorize without additional AI calls
-    return this.categorizeKeywordsFallback(keywords);
+    try {
+      // Step 1: Candidate Generation
+      const candidates = await this.generateJobCandidates(userInput);
+      
+      if (candidates.length === 0) {
+        console.log('🔄 No candidates from AI, using fallback');
+        const fallbackKeywords = this.getFallbackJobKeywords(userInput.toLowerCase().trim());
+        return this.categorizeKeywordsFallback(fallbackKeywords);
+      }
+      
+      // Step 3: Ranking (skip vocabulary alignment for now)
+      const rankedResults = await this.rankJobTitles(userInput, candidates);
+      
+      // Convert ranked results to categorized format
+      return this.convertRankedToCategorized(rankedResults);
+      
+    } catch (error) {
+      console.error('Full AI pipeline failed:', error);
+      const fallbackKeywords = this.getFallbackJobKeywords(userInput.toLowerCase().trim());
+      return this.categorizeKeywordsFallback(fallbackKeywords);
+    }
   }
 
-  private async generateJobKeywords(userInput: string): Promise<string[]> {
-    // Ultra-simplified prompt focused on direct translation
-    const prompt = `Переведи "${userInput}" в русские названия профессий для поиска работы на HH.ru:
+  private async generateJobCandidates(userInput: string): Promise<string[]> {
+    const systemMessage = `You help users search for jobs on hh.ru (HeadHunter).
+Your job is to produce Russian job titles that real candidates type in searches on hh.ru.
+Follow these rules strictly:
 
-["тестировщик", "QA инженер", "тестер"]
+Return only JSON that matches the requested schema. No prose, no Markdown.
 
-Твой ответ для "${userInput}":`;
+Think "what a real person would type into hh.ru" — short, common job titles, nominative case.
 
-    console.log(`🎯 Generating keywords for: "${userInput}"`);
-    console.log(`📝 Prompt: ${prompt.substring(0, 200)}...`);
+Do not invent generic fallbacks. If you can't produce results, return an empty array with a short machine-readable reason field.
+
+Avoid skills ("Python", "Excel"), duties, or industries. Output job titles ("аналитик данных", "инженер по данным").
+
+No duplicates, no near-duplicates. Prefer Russian over English unless English is a standard market term ("DevOps", "QA").
+
+Respect user intent (domain, seniority, language, location hints).
+
+Keep each title under 5 words if possible.
+
+If the user's input is unclear, infer likely intent but stay conservative.
+
+Never add commentary outside JSON.`;
+
+    const userMessage = `Пользовательский запрос (как есть):
+"${userInput}"
+
+Задача:
+Сгенерируй до 20 релевантных российских названий должностей для поиска на hh.ru, которые реальные люди вводят в строку поиска.
+— Только должности (не навыки, не отрасли).
+— Нормальная разговорная лексика рынка труда.
+— Избегай редких и слишком длинных формулировок.
+— Если уместно, включи общеупотребимые англоязычные термины (например, "DevOps", "QA").
+
+Формат ответа (строго JSON):
+{
+"query": "${userInput}",
+"candidates": [
+{"title": "…"},
+{"title": "…"}
+],
+"meta": {
+"total": <number_of_candidates>,
+"note": "optional short note, or empty string"
+}
+}
+
+Если уверенных вариантов нет, верни:
+{
+"query": "${userInput}",
+"candidates": [],
+"meta": {"total": 0, "note": "no_confident_titles"}
+}`;
+
+    console.log(`🎯 Step 1: Generating candidates for: "${userInput}"`);
 
     try {
       const result = await this.makeAIRequest(async () => {
-        return await this.model.generateContent(prompt);
+        return await this.model.generateContent(`${systemMessage}\n\n${userMessage}`);
       });
+      
       const response = result.response.text().trim();
-      console.log(`✅ AI response: ${response}`);
+      console.log(`✅ Step 1 AI response: ${response}`);
       
-      // Extract JSON array from response
-      let jsonText = response;
+      // Parse JSON response
+      const parsed = JSON.parse(response);
       
-      // Handle various response formats
-      if (response.includes('[') && response.includes(']')) {
-        const start = response.indexOf('[');
-        const end = response.lastIndexOf(']') + 1;
-        jsonText = response.substring(start, end);
+      if (!parsed.candidates || !Array.isArray(parsed.candidates)) {
+        console.log('❌ Invalid response format');
+        return [];
       }
       
-      const parsed = JSON.parse(jsonText);
-      const keywords = Array.isArray(parsed) ? parsed.slice(0, 15) : [];
-      console.log(`🎯 Extracted keywords: ${keywords.join(', ')}`);
-      return keywords;
+      const candidates = parsed.candidates.map((c: any) => c.title).filter((title: string) => title && title.trim());
+      console.log(`🎯 Step 1 extracted ${candidates.length} candidates: ${candidates.join(', ')}`);
+      
+      return candidates;
       
     } catch (error) {
-      console.error('Stage 1 keyword generation failed:', error);
-      // Use intelligent fallback
-      const fallbackKeywords = this.getFallbackJobKeywords(userInput.toLowerCase().trim());
-      console.log(`🔄 Using fallback keywords: ${fallbackKeywords.join(', ')}`);
-      return fallbackKeywords;
+      console.error('Step 1 candidate generation failed:', error);
+      return [];
     }
+  }
+
+  private async rankJobTitles(userInput: string, titles: string[]): Promise<Array<{rank: number, title: string, reason: string}>> {
+    const systemMessage = `You help users search for jobs on hh.ru (HeadHunter).
+Your job is to produce Russian job titles that real candidates type in searches on hh.ru.
+Follow these rules strictly:
+
+Return only JSON that matches the requested schema. No prose, no Markdown.
+
+Think "what a real person would type into hh.ru" — short, common job titles, nominative case.
+
+Do not invent generic fallbacks. If you can't produce results, return an empty array with a short machine-readable reason field.
+
+Avoid skills ("Python", "Excel"), duties, or industries. Output job titles ("аналитик данных", "инженер по данным").
+
+No duplicates, no near-duplicates. Prefer Russian over English unless English is a standard market term ("DevOps", "QA").
+
+Respect user intent (domain, seniority, language, location hints).
+
+Keep each title under 5 words if possible.
+
+If the user's input is unclear, infer likely intent but stay conservative.
+
+Never add commentary outside JSON.`;
+
+    const userMessage = `Оригинальный запрос пользователя: "${userInput}"
+
+Список названий должностей для ранжирования (final set):
+${JSON.stringify(titles)}
+
+Задача:
+
+Отранжируй ТОП-10 (1 = самый релевантный для данного запроса).
+
+Если вариантов меньше 10, верни столько, сколько есть.
+
+Для каждого пункта добавь краткое обоснование (1–2 фразы) с фокусом на поисковую релевантность.
+
+Не добавляй новых вариантов. Не повторяй. Только из входного списка.
+
+Формат ответа (строго JSON):
+{
+"query": "${userInput}",
+"ranked": [
+{"rank": 1, "title": "…", "reason": "…"},
+{"rank": 2, "title": "…", "reason": "…"}
+],
+"meta": {"count": <number_returned>}
+}
+
+Если входной список пуст:
+{
+"query": "${userInput}",
+"ranked": [],
+"meta": {"count": 0, "note": "no_titles_to_rank"}
+}`;
+
+    console.log(`🎯 Step 3: Ranking ${titles.length} titles for: "${userInput}"`);
+
+    try {
+      const result = await this.makeAIRequest(async () => {
+        return await this.model.generateContent(`${systemMessage}\n\n${userMessage}`);
+      });
+      
+      const response = result.response.text().trim();
+      console.log(`✅ Step 3 AI response: ${response}`);
+      
+      // Parse JSON response
+      const parsed = JSON.parse(response);
+      
+      if (!parsed.ranked || !Array.isArray(parsed.ranked)) {
+        console.log('❌ Invalid ranking response format');
+        return [];
+      }
+      
+      console.log(`🎯 Step 3 ranked ${parsed.ranked.length} titles`);
+      return parsed.ranked;
+      
+    } catch (error) {
+      console.error('Step 3 ranking failed:', error);
+      return [];
+    }
+  }
+
+  private convertRankedToCategorized(rankedResults: Array<{rank: number, title: string, reason: string}>): {
+    exactPhrases: string[];
+    strongSynonyms: string[];
+    weakAmbiguous: string[];
+    allowedEnglishAcronyms: string[];
+  } {
+    const result = {
+      exactPhrases: [] as string[],
+      strongSynonyms: [] as string[],
+      weakAmbiguous: [] as string[],
+      allowedEnglishAcronyms: [] as string[]
+    };
+
+    // Categorize based on rank and content
+    rankedResults.forEach(({ rank, title }) => {
+      const isEnglish = /^[a-zA-Z\s]+$/.test(title);
+      const isTechnical = ['QA', 'DevOps', 'ML', 'AI', 'IT', 'SEO', 'SMM', 'CRM', 'ERP'].some(tech => title.includes(tech));
+      
+      if (isTechnical && isEnglish) {
+        result.allowedEnglishAcronyms.push(title);
+      } else if (rank <= 3) {
+        result.exactPhrases.push(title);
+      } else if (rank <= 7) {
+        result.strongSynonyms.push(title);
+      } else {
+        result.weakAmbiguous.push(title);
+      }
+    });
+
+    return result;
   }
 
 
