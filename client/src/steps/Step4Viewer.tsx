@@ -104,6 +104,8 @@ export default function Step4Viewer({ onBackToDashboard }: Step4ViewerProps) {
   const [savedPrompts, setSavedPrompts] = useState<any[]>([]);
   const [pageJumpValue, setPageJumpValue] = useState('');
   const [jumpError, setJumpError] = useState('');
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreResults, setHasMoreResults] = useState(true);
 
 
 
@@ -602,32 +604,44 @@ ${jobInfo.description}`;
         return { items: allItems, count: totalFound };
       };
 
-      // Tier A: Title search (search_field=name) - fetch up to 3 pages
-      const titleResult = await fetchTierPages('name', 'Title', 3);
+      // Adaptive page loading based on results availability
+      const getOptimalPageCount = (tierName: string, basePages: number) => {
+        // In Safe Mode, load more pages since filtering is minimal
+        if (isSafeMode) return basePages + 2;
+        // For high-value searches, load more pages
+        if (keywordTexts.length === 1) return basePages + 1;
+        return basePages;
+      };
+
+      // Tier A: Title search (search_field=name) - most relevant, load more pages
+      const titlePages = getOptimalPageCount('Title', 4); // Up to 6 pages in Safe Mode
+      const titleResult = await fetchTierPages('name', 'Title', titlePages);
       tierResults.push({
         tier: 'Title',
         items: titleResult.items,
         count: titleResult.count,
-        url: 'Title search (multi-page)'
+        url: `Title search (${titlePages} pages)`
       });
 
-      // Tier B: Description search (search_field=description) - fetch up to 2 pages
-      const descResult = await fetchTierPages('description', 'Description', 2);
+      // Tier B: Description search (search_field=description) - good volume
+      const descPages = getOptimalPageCount('Description', 3); // Up to 5 pages in Safe Mode  
+      const descResult = await fetchTierPages('description', 'Description', descPages);
       tierResults.push({
         tier: 'Description',
         items: descResult.items,
         count: descResult.count,
-        url: 'Description search (multi-page)'
+        url: `Description search (${descPages} pages)`
       });
 
-      // Tier C: Skills search (with optional company_name fallback) - fetch up to 2 pages
+      // Tier C: Skills/Company search - additional results
       const skillsSearchField = (isSafeMode || filters.useCompanyFallback) ? 'company_name' : 'name';
-      const skillsResult = await fetchTierPages(skillsSearchField, 'Skills', 2);
+      const skillsPages = getOptimalPageCount('Skills', 2); // Up to 4 pages in Safe Mode
+      const skillsResult = await fetchTierPages(skillsSearchField, 'Skills', skillsPages);
       tierResults.push({
         tier: 'Skills',
         items: skillsResult.items,
         count: skillsResult.count,
-        url: `Skills search (${skillsSearchField}, multi-page)`
+        url: `Skills search (${skillsSearchField}, ${skillsPages} pages)`
       });
 
       // Apply hard filtering and enhanced scoring to all results  
@@ -789,7 +803,8 @@ ${jobInfo.description}`;
         
         // Log improvement for user visibility
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🚀 Multi-page fetching enabled: Got ${vacanciesData.items.length} results from ${vacanciesData.tiers || 3} tiers (up to 700 total possible)`);
+          const maxPossible = filters.safeMode ? '1300 (Safe Mode)' : '900';
+          console.log(`🚀 Adaptive multi-page fetching: Got ${vacanciesData.items.length} results from 3 tiers (up to ${maxPossible} total possible)`);
         }
       } else {
         // Subsequent pages - append results (avoid duplicates)
@@ -1025,6 +1040,155 @@ ${jobInfo.description}`;
     URL.revokeObjectURL(url);
   };
 
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMoreResults) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Fetch additional pages for each tier
+      const hhFilters = generateSearchSignature();
+      if (!hhFilters || !selectedKeywordsCanonical) return;
+
+      const baseParams = { ...hhFilters };
+      delete baseParams.search_field;
+      
+      const keywordTexts = selectedKeywordsCanonical.map(k => k.text);
+      const isSafeMode = filters.safeMode;
+
+      // Function to fetch one more page for a tier
+      const fetchMorePages = async (searchField: string, tierName: string, startPage: number, count: number = 2) => {
+        const allItems: any[] = [];
+        
+        for (let i = 0; i < count; i++) {
+          const page = startPage + i;
+          const params = new URLSearchParams();
+          Object.entries(baseParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              if (Array.isArray(value)) {
+                value.forEach(v => params.append(key, v.toString()));
+              } else {
+                params.set(key, value.toString());
+              }
+            }
+          });
+          params.set('search_field', searchField);
+          params.set('page', page.toString());
+          params.set('per_page', '100');
+
+          const response = await fetch(`/api/vacancies?${params.toString()}`, {
+            headers: {
+              'X-Search-Run-Id': currentSearchSignature,
+              'X-Client-Signature': currentSearchSignature
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.items && data.items.length > 0) {
+              allItems.push(...data.items);
+            } else {
+              setHasMoreResults(false);
+              break;
+            }
+          }
+          
+          // Small delay between requests
+          if (i < count - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+        
+        return allItems;
+      };
+
+      // Fetch more results from all tiers
+      const [moreTitle, moreDesc, moreSkills] = await Promise.all([
+        fetchMorePages('name', 'Title', 5), // Start from page 5 for titles
+        fetchMorePages('description', 'Description', 4), // Start from page 4 for descriptions  
+        fetchMorePages(isSafeMode || filters.useCompanyFallback ? 'company_name' : 'name', 'Skills', 3)
+      ]);
+
+      const allNewItems = [...moreTitle, ...moreDesc, ...moreSkills];
+      
+      if (allNewItems.length > 0) {
+        // Apply the same filtering and scoring logic as main search
+        const keywordTexts = selectedKeywordsCanonical.map(k => k.text);
+        const excludeWords = isSafeMode ? [] : (filters.excludeWords || '')
+          .split(',')
+          .map(word => {
+            const trimmed = word.trim();
+            return trimmed.startsWith('"') && trimmed.endsWith('"') 
+              ? trimmed.slice(1, -1) 
+              : trimmed;
+          })
+          .filter(word => word.length > 0);
+
+        // Filter and score new items
+        const processedItems = allNewItems
+          .filter((vacancy: any) => {
+            // Hard filtering for excluded words
+            if (excludeWords.length === 0) return true;
+            
+            const title = vacancy.name?.toLowerCase() || '';
+            const description = vacancy.snippet?.requirement?.toLowerCase() || '';
+            const responsibility = vacancy.snippet?.responsibility?.toLowerCase() || '';
+            const skills = vacancy.key_skills?.map((skill: any) => skill.name?.toLowerCase()).join(' ') || '';
+            const fullText = `${title} ${description} ${responsibility} ${skills}`;
+            
+            return !excludeWords.some(excludeWord => 
+              fullText.includes(excludeWord.toLowerCase())
+            );
+          })
+          .map((vacancy: any) => {
+            // Add relevance score
+            let score = 0;
+            const title = vacancy.name?.toLowerCase() || '';
+            const description = vacancy.snippet?.requirement?.toLowerCase() || '';
+            
+            for (const keyword of keywordTexts) {
+              const keywordLower = keyword.toLowerCase();
+              if (title.includes(keywordLower)) score += 10;
+              if (description.includes(keywordLower)) score += 5;
+            }
+            
+            return { ...vacancy, relevanceScore: score };
+          });
+
+        // Merge with existing results, avoiding duplicates
+        const currentResults = searchResults || [];
+        const existingIds = new Set(currentResults.map(item => item.id));
+        const newUniqueItems = processedItems.filter(item => !existingIds.has(item.id));
+        
+        if (newUniqueItems.length > 0) {
+          const updatedResults = [...currentResults, ...newUniqueItems];
+          setSearchResults(updatedResults, totalFound + newUniqueItems.length);
+          
+          toast({
+            title: "More Results Loaded",
+            description: `Added ${newUniqueItems.length} more job opportunities`
+          });
+        } else {
+          setHasMoreResults(false);
+          toast({
+            title: "No More Results",
+            description: "All available results have been loaded"
+          });
+        }
+      } else {
+        setHasMoreResults(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more results:', error);
+      toast({
+        title: "Error Loading More",
+        description: "Failed to load additional results. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   const formatSalary = (salary: any) => {
     if (!salary) return null;
     
@@ -1234,8 +1398,29 @@ ${jobInfo.description}`;
               </p>
             )}
           </div>
-          <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg">
-            Want different results? Start a New Search to change keywords or filters.
+          <div className="flex flex-col items-end gap-2">
+            {/* Load More Button */}
+            {hasMoreResults && searchResults.length > 0 && (
+              <Button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore || isSearching}
+                variant="outline"
+                size="sm"
+                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mr-2" />
+                    Loading More...
+                  </>
+                ) : (
+                  'Load More Results'
+                )}
+              </Button>
+            )}
+            <div className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg">
+              Want different results? Start a New Search to change keywords or filters.
+            </div>
           </div>
         </div>
       </div>
