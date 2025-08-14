@@ -1,0 +1,142 @@
+What Step 1 → Step 2 should do
+
+User enters a free-text goal in Step 1 (any language).
+
+Step 2 automatically:
+
+asks Gemini to generate up to 20 job titles (not skills),
+
+(optionally) aligns them to hh.ru vocabulary if you already call HH suggests,
+
+asks Gemini to rank the final set 1→10 with 1–2 sentence reasons,
+
+shows a ranked checklist so the user can pick which titles to use.
+
+No fallbacks: if Gemini can’t confidently produce titles, return an empty list and show a gentle “try refining your query” message.
+
+Contracts Replit can rely on (strict JSON only)
+1) Candidate Generation (Step 2 starts)
+
+SYSTEM (send with every Gemini call)
+You help users search jobs on hh.ru (HeadHunter).
+Return only JSON exactly matching the requested schema. No prose, no Markdown.
+Rules:
+1) Output Russian job titles (должности), nominative, market-common; include English only if it is common on hh.ru (e.g., QA, DevOps, Product Manager, Buyer).
+2) No fallbacks: if uncertain, return an empty array and a short machine-readable note in "meta".
+3) Ban generic shells without a domain: "менеджер", "специалист", "ассистент", "координатор", "руководитель" unless they include a domain lexeme (e.g., по закупкам/маркетингу/продажам/разработке).
+4) No skills, duties, industries — only job titles.
+5) ≤ 5 words per title when possible. No duplicates or near-duplicates.
+6) Respect user intent (domain, seniority, language hints). Keep Russian-first unless the market uses English.
+
+USER
+Пользовательский запрос (как есть):
+"{userQuery}"
+
+Задача:
+1) Определи предполагаемую профессиональную область (например: закупки, маркетинг, продажи, финансы, ИТ-разработка, аналитика данных, логистика, HR, дизайн, юриспруденция и т.п.).
+2) Сгенерируй до 20 релевантных НАЗВАНИЙ ДОЛЖНОСТЕЙ для поиска на hh.ru по этой области. Исключи общие названия без доменной части.
+3) Верни строго JSON по схеме:
+
+{
+  "query": "{userQuery}",
+  "domain": "detected-domain-or-empty",
+  "candidates": [
+    {"title": "…" }
+  ],
+  "meta": {
+    "total": <number>,
+    "note": ""
+  }
+}
+
+Если нет уверенных вариантов:
+{
+  "query": "{userQuery}",
+  "domain": "",
+  "candidates": [],
+  "meta": {"total": 0, "note": "no_confident_titles"}
+}
+Anti-generic gate (implicit in rules): Titles like “Менеджер / Специалист / Координатор / Ассистент / Руководитель” must include a domain part (e.g., “по закупкам”, “по маркетингу”, “по продажам”, “по снабжению”, “по логистике”, “по персоналу”).
+
+2) (Optional) Vocabulary Alignment to hh.ru
+
+Use only if your server already queried HH suggests and built an approved list.
+
+USER
+Оригинальный запрос: "{userQuery}"
+
+Кандидаты после генерации:
+{candidatesJsonArray}   // ["менеджер по закупкам","категорийный менеджер","buyer", …]
+
+Разрешённые варианты по словарю hh.ru (после suggests):
+{hhApprovedJsonArray}
+
+Задача:
+1) Оставь только те кандидаты, которые семантически соответствуют и присутствуют в hh-списке.
+2) Приведи к наиболее естественной для hh.ru форме.
+3) Ничего не добавляй.
+
+Ответ (строго JSON):
+{
+  "normalized": ["…","…"],
+  "dropped": ["…","…"],
+  "meta": {"kept": <n>, "removed": <m>}
+}
+If you’re not doing HH alignment yet, skip this step entirely.
+
+3) Top-10 Ranking (always 1→N, N ≤ 10)
+
+USER
+Оригинальный запрос пользователя: "{userQuery}"
+
+Список должностей для ранжирования:
+{titlesJsonArray}   // e.g., ["менеджер по закупкам","категорийный менеджер","buyer","специалист по тендерам", …]
+
+Критерии релевантности:
+- Чёткая принадлежность к обнаруженной области.
+- Понятность для соискателей на hh.ru и распространённость названия.
+- Если в запросе указаны seniority/отрасль/язык — учти это.
+
+Формат (строго JSON):
+{
+  "query": "{userQuery}",
+  "ranked": [
+    {"rank": 1, "title": "…", "reason": "1–2 кратких фразы"},
+    {"rank": 2, "title": "…", "reason": "…"}
+  ],
+  "meta": {"count": <number_returned>}
+}
+
+Если входной список пуст:
+{
+  "query": "{userQuery}",
+  "ranked": [],
+  "meta": {"count": 0, "note": "no_titles_to_rank"}
+}
+
+Validation rules Replit should enforce (no coding shown, just behavior)
+
+Strict JSON only. If Gemini returns code fences or stray text, strip fences and parse; if parsing fails, retry the same prompt once. If it still fails, surface a concise error in Step 2 (no fallback strings).
+
+De-duplication: case-insensitive, trim punctuation and extra spaces before comparing.
+
+Anti-generic filter: drop any candidate that’s only “менеджер/специалист/координатор/ассистент/руководитель” without a domain lexeme (e.g., “по закупкам”, “по маркетингу”, etc.).
+
+Count limits: Generation ≤ 20; Ranking returns min(10, N).
+
+Language preference: Russian-first, but retain common English market terms (QA, DevOps, Product Manager, Buyer, Procurement Manager, Sourcing Manager).
+
+No fallbacks. Empty arrays are allowed and should be displayed with a “refine your query” hint.
+
+Step 2 UX (simple + clear)
+
+Show a numbered list 1→N (N ≤ 10).
+
+Each list item: [checkbox] Title with a small gray reason line.
+
+Primary CTA: “Use selected titles” (disabled until ≥1 selected).
+
+Secondary: “Regenerate suggestions” (keeps the same user query).
+
+Helper text when empty:
+«Мы не нашли уверенных названий должностей для вашего запроса. Уточните область, уровень или тип компании и попробуйте снова.»

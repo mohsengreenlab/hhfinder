@@ -1,24 +1,35 @@
 export interface AIKeywordsResponse {
-  // New Russian-first structure
-  exactPhrases: { text: string; source: 'hh'; isEnglish?: boolean }[];
-  strongSynonyms: { text: string; source: 'hh'; isEnglish?: boolean }[];
-  weakAmbiguous: { text: string; source: 'hh'; isEnglish?: boolean }[];
+  // New structured ranking system
+  ranked?: Array<{
+    rank: number;
+    title: string;
+    reason: string;
+    source: 'hh';
+  }>;
+  domain?: string;
+  
+  // Current Russian-first structure (for backward compatibility)
+  exactPhrases: { text: string; source: 'hh'; isEnglish?: boolean; reason?: string }[];
+  strongSynonyms: { text: string; source: 'hh'; isEnglish?: boolean; reason?: string }[];
+  weakAmbiguous: { text: string; source: 'hh'; isEnglish?: boolean; reason?: string }[];
   aiSeeds?: {
     exactPhrases: string[];
     strongSynonyms: string[];
     weakAmbiguous: string[];
     allowedEnglishAcronyms: string[];
   };
-  languageStats: {
+  languageStats?: {
     totalSuggestions: number;
     russianCount: number;
     englishCount: number;
   };
+  
   // Legacy fields (for backward compatibility)
   aiTitles?: string[];
   suggestionsTop10?: Array<{
     text: string;
     source: 'hh';
+    reason?: string;
   }>;
 }
 
