@@ -6,6 +6,16 @@ This AI-powered job search application helps users find vacancies on HH.ru (Head
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+## August 15, 2025 - Migration and Rate Limiting Fix
+- **Migration**: Successfully migrated project from Replit Agent to standard Replit environment
+- **Rate Limiting Fix**: Fixed Gemini AI overload issue by:
+  - Increased minimum request interval from 2s to 5s between AI calls
+  - Added 3s additional wait between candidate generation and ranking steps
+  - Implemented fallback logic to use unranked candidates if ranking fails
+  - This prevents 503 "Service Unavailable" errors from Gemini API
+
 # System Architecture
 
 ## Frontend Architecture

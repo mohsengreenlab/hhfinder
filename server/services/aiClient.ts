@@ -13,7 +13,7 @@ export class AIClient {
   private model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   private proModel = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
   private lastRequestTime = 0;
-  private readonly MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+  private readonly MIN_REQUEST_INTERVAL = 5000; // 5 seconds between requests (increased for stability)
 
   private async waitForRateLimit(): Promise<void> {
     const now = Date.now();
@@ -77,15 +77,19 @@ export class AIClient {
         };
       }
       
-      // Step 3: Ranking (skip vocabulary alignment for now)
+      // Step 3: Ranking - add extra wait time between AI calls to avoid rate limiting
+      console.log('⏳ Waiting extra time before ranking to avoid rate limits...');
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Additional 3s wait
+      
       const rankedResults = await this.rankJobTitles(userInput, candidates);
       
       if (rankedResults.length === 0) {
-        console.log('🔄 No ranked results - returning empty');
+        console.log('🔄 No ranked results - using unranked candidates as fallback');
+        // Use candidates directly if ranking fails
         return {
-          exactPhrases: [],
-          strongSynonyms: [],
-          weakAmbiguous: [],
+          exactPhrases: candidates.slice(0, 3), // Top 3 as exact phrases
+          strongSynonyms: candidates.slice(3, 8), // Next 5 as strong synonyms
+          weakAmbiguous: candidates.slice(8), // Rest as weak
           allowedEnglishAcronyms: []
         };
       }
