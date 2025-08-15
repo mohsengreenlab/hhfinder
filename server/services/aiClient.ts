@@ -764,43 +764,11 @@ Format: 3 short paragraphs, 150-200 words total, professional tone.`;
     } catch (error) {
       console.error('Cover letter generation failed:', error);
       
-      // Always fall back to template-based generation
-      return this.generateFallbackCoverLetter(request);
+      // Return error message instead of template
+      return "Sorry, AI is not working now";
     }
   }
 
-  private generateFallbackCoverLetter(request: {
-    name: string;
-    employerName: string;
-    areaName: string;
-    skillsList: string[];
-    plainDescription: string;
-    userProfile?: string;
-    customPrompt?: string;
-  }): string {
-    const skills = request.skillsList.slice(0, 3);
-    const primarySkill = skills[0] || 'relevant experience';
-    const secondarySkills = skills.slice(1).join(' and ') || 'professional skills';
-    
-    // Extract key requirements from job description
-    const description = request.plainDescription.toLowerCase();
-    let keyRequirement = 'your requirements';
-    if (description.includes('experience')) keyRequirement = 'the experience requirements';
-    else if (description.includes('skills')) keyRequirement = 'the technical skills needed';
-    else if (description.includes('responsible')) keyRequirement = 'the responsibilities outlined';
-    
-    // Create more natural, personalized template
-    return `Dear Hiring Manager,
-
-I am excited to apply for the ${request.name} position at ${request.employerName}. My expertise in ${primarySkill} and ${secondarySkills} makes me well-suited for this role.
-
-I have developed strong capabilities that directly match ${keyRequirement}. Your job posting particularly caught my attention because it emphasizes skills I have successfully applied in previous positions. I am eager to bring this experience to your team in ${request.areaName}.
-
-I would appreciate the opportunity to discuss how my background can contribute to ${request.employerName}'s continued success. Thank you for your time and consideration.
-
-Best regards,
-[Your Name]`;
-  }
 
 
 }
