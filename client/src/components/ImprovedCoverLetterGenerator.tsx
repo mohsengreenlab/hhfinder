@@ -364,7 +364,8 @@ ${jobInfo.description}`;
   };
 
   const handleGenerate = async () => {
-    const promptText = getCurrentPromptText();
+    // Use buildFinalPrompt() which handles templates, placeholders, and system prompts correctly
+    const promptText = buildFinalPrompt();
     if (!promptText.trim()) {
       toast({ 
         title: "Please enter a prompt", 

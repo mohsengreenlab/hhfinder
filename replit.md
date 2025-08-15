@@ -16,6 +16,14 @@ Preferred communication style: Simple, everyday language.
   - Implemented fallback logic to use unranked candidates if ranking fails
   - This prevents 503 "Service Unavailable" errors from Gemini API
 
+## August 15, 2025 - Cover Letter Generation Fixes
+- **Custom Prompt Support**: Fixed cover letter generation to properly use user's custom prompts and templates
+  - Backend now correctly uses the `customPrompt` parameter sent from frontend
+  - Frontend now sends the fully processed prompt with placeholders replaced
+  - Supports default, technical, creative, custom, and saved prompt templates
+- **User Settings Fix**: Fixed user settings save error by automatically adding `userId` from authenticated user
+- **Single AI Request**: Cover letter generation now uses only ONE AI request with the user's selected prompt
+
 # System Architecture
 
 ## Frontend Architecture

@@ -740,26 +740,34 @@ Return a JSON object with correct IDs from dictionaries. For the "text" field, c
     userProfile?: string;
     customPrompt?: string;
   }): Promise<string> {
-    // Use fallback immediately if we know we're over quota or service is unavailable
-    // This prevents wasting API calls when we know they'll fail
     try {
-      // Simplified, concise prompt to reduce token usage
-      const prompt = `Write a brief professional cover letter in English:
+      // Use the custom prompt from frontend if provided, otherwise use simple fallback
+      let finalPrompt: string;
+      
+      if (request.customPrompt && request.customPrompt.trim()) {
+        // Use the exact custom prompt sent from frontend (already processed with placeholders)
+        finalPrompt = request.customPrompt.trim();
+        console.log('🎯 Using custom prompt for cover letter generation');
+      } else {
+        // Simple fallback prompt if no custom prompt provided
+        finalPrompt = `Write a brief professional cover letter in English:
 
 Job: ${request.name} at ${request.employerName}
 Skills needed: ${request.skillsList.slice(0, 3).join(', ')}
 Description: ${request.plainDescription.substring(0, 400)}
 
 Format: 3 short paragraphs, 150-200 words total, professional tone.`;
+        console.log('🎯 Using default fallback prompt for cover letter generation');
+      }
 
       const result = await this.makeAIRequest(async () => {
-        return await this.model.generateContent(prompt);
+        return await this.model.generateContent(finalPrompt);
       });
       
       const generatedText = result.response.text().trim();
       
       // Validate the response is reasonable
-      if (generatedText.length < 50 || generatedText.includes('[')) {
+      if (generatedText.length < 30 || generatedText.includes('[ERROR')) {
         throw new Error('Generated text appears incomplete');
       }
       

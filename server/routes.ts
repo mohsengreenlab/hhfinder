@@ -22,6 +22,7 @@ import {
   insertSavedPromptSchema,
   insertSavedPromptWithUserSchema,
   insertUserSettingsSchema,
+  updateUserSettingsSchema,
   loginSchema,
   createUserSchema,
   updateUserSchema,
@@ -973,7 +974,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const user = (req as any).user as User;
-      const validatedBody = insertUserSettingsSchema.parse(req.body);
+      // Use updateUserSettingsSchema which doesn't require userId (comes from auth)
+      const validatedBody = updateUserSettingsSchema.parse(req.body);
       
       const settings = await storage.updateUserSettings(user.id, validatedBody);
       
