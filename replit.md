@@ -26,7 +26,8 @@ Preferred communication style: Simple, everyday language.
 - **Improved Prompt Selection UX**: Enhanced prompt template selection behavior:
   - Saved prompts now appear at the top of the dropdown menu
   - When a user saves a new prompt, it automatically becomes the selected template
-  - First saved prompt is auto-selected by default for new users
+  - First saved prompt is auto-selected by default for new users AND when navigating between vacancies
+  - Saved prompts are always prioritized over built-in templates
   - User preferences are persistent across sessions
 
 # System Architecture

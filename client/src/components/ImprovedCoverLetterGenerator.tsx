@@ -322,28 +322,29 @@ ${jobInfo.description}`;
     }
   });
 
-  // Load user settings on mount
+  // Load user settings on mount and prioritize saved prompts
   useEffect(() => {
-    if (userSettings && savedPrompts.length >= 0) {
-      // If user has a saved prompt type preference, prioritize it
-      if (userSettings.lastUsedPromptType) {
-        setSelectedPromptType(userSettings.lastUsedPromptType);
-        
-        // Load saved prompt content if it's a saved prompt
-        if (userSettings.lastUsedPromptType.startsWith('saved-')) {
-          const promptId = parseInt(userSettings.lastUsedPromptType.replace('saved-', ''));
-          const savedPrompt = savedPrompts.find(p => p.id === promptId);
-          if (savedPrompt) {
-            setCustomPromptText(savedPrompt.prompt);
-          }
-        } else if (userSettings.lastUsedCustomPrompt && userSettings.lastUsedPromptType === 'custom') {
-          setCustomPromptText(userSettings.lastUsedCustomPrompt);
+    // Always prioritize saved prompts if they exist
+    if (savedPrompts.length > 0) {
+      const firstPrompt = savedPrompts[0];
+      const promptValue = `saved-${firstPrompt.id}`;
+      
+      // Check if the user's last used prompt is still valid (exists in saved prompts)
+      let shouldUseFirstPrompt = true;
+      
+      if (userSettings?.lastUsedPromptType?.startsWith('saved-')) {
+        const promptId = parseInt(userSettings.lastUsedPromptType.replace('saved-', ''));
+        const existingPrompt = savedPrompts.find(p => p.id === promptId);
+        if (existingPrompt) {
+          // User's last prompt still exists, use it
+          setSelectedPromptType(userSettings.lastUsedPromptType);
+          setCustomPromptText(existingPrompt.prompt);
+          shouldUseFirstPrompt = false;
         }
-      } 
-      // If no user preference but saved prompts exist, select the first one
-      else if (savedPrompts.length > 0) {
-        const firstPrompt = savedPrompts[0];
-        const promptValue = `saved-${firstPrompt.id}`;
+      }
+      
+      // If no valid saved prompt preference, use the first saved prompt
+      if (shouldUseFirstPrompt) {
         setSelectedPromptType(promptValue);
         setCustomPromptText(firstPrompt.prompt);
         
@@ -353,6 +354,13 @@ ${jobInfo.description}`;
           lastUsedPromptId: firstPrompt.id
         };
         saveSettingsMutation.mutate(newSettings);
+      }
+    }
+    // Only fall back to user settings if no saved prompts exist
+    else if (userSettings?.lastUsedPromptType) {
+      setSelectedPromptType(userSettings.lastUsedPromptType);
+      if (userSettings.lastUsedCustomPrompt && userSettings.lastUsedPromptType === 'custom') {
+        setCustomPromptText(userSettings.lastUsedCustomPrompt);
       }
     }
   }, [userSettings, savedPrompts]);
