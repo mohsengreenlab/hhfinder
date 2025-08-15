@@ -104,11 +104,22 @@ export function ImprovedCoverLetterGenerator({ vacancy, onClose }: ImprovedCover
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newPrompt: SavedPrompt) => {
       toast({ title: "Prompt saved successfully!" });
       refetchPrompts();
       setShowSaveDialog(false);
       setSavePromptName('');
+      
+      // Automatically select the newly saved prompt as the active choice
+      const newPromptValue = `saved-${newPrompt.id}`;
+      setSelectedPromptType(newPromptValue);
+      
+      // Update user settings to remember this as the last used prompt
+      const newSettings: UserSettings = {
+        lastUsedPromptType: newPromptValue,
+        lastUsedPromptId: newPrompt.id
+      };
+      saveSettingsMutation.mutate(newSettings);
     },
     onError: (error: any) => {
       if (error.status === 409) {
@@ -313,15 +324,38 @@ ${jobInfo.description}`;
 
   // Load user settings on mount
   useEffect(() => {
-    if (userSettings) {
+    if (userSettings && savedPrompts.length >= 0) {
+      // If user has a saved prompt type preference, prioritize it
       if (userSettings.lastUsedPromptType) {
         setSelectedPromptType(userSettings.lastUsedPromptType);
-      }
-      if (userSettings.lastUsedCustomPrompt && userSettings.lastUsedPromptType === 'custom') {
-        setCustomPromptText(userSettings.lastUsedCustomPrompt);
+        
+        // Load saved prompt content if it's a saved prompt
+        if (userSettings.lastUsedPromptType.startsWith('saved-')) {
+          const promptId = parseInt(userSettings.lastUsedPromptType.replace('saved-', ''));
+          const savedPrompt = savedPrompts.find(p => p.id === promptId);
+          if (savedPrompt) {
+            setCustomPromptText(savedPrompt.prompt);
+          }
+        } else if (userSettings.lastUsedCustomPrompt && userSettings.lastUsedPromptType === 'custom') {
+          setCustomPromptText(userSettings.lastUsedCustomPrompt);
+        }
+      } 
+      // If no user preference but saved prompts exist, select the first one
+      else if (savedPrompts.length > 0) {
+        const firstPrompt = savedPrompts[0];
+        const promptValue = `saved-${firstPrompt.id}`;
+        setSelectedPromptType(promptValue);
+        setCustomPromptText(firstPrompt.prompt);
+        
+        // Update user settings to remember this choice
+        const newSettings: UserSettings = {
+          lastUsedPromptType: promptValue,
+          lastUsedPromptId: firstPrompt.id
+        };
+        saveSettingsMutation.mutate(newSettings);
       }
     }
-  }, [userSettings]);
+  }, [userSettings, savedPrompts]);
 
   // Save user settings when prompt type or text changes
   useEffect(() => {
@@ -488,15 +522,17 @@ ${jobInfo.description}`;
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">Default Template</SelectItem>
-              <SelectItem value="technical">Technical Focus</SelectItem>
-              <SelectItem value="creative">Creative Approach</SelectItem>
-              <SelectItem value="custom">Custom Prompt</SelectItem>
+              {/* Saved prompts appear at the top */}
               {savedPrompts.map(prompt => (
                 <SelectItem key={`saved-${prompt.id}`} value={`saved-${prompt.id}`}>
                   📝 {prompt.name}
                 </SelectItem>
               ))}
+              {/* Built-in templates below saved prompts */}
+              <SelectItem value="default">Default Template</SelectItem>
+              <SelectItem value="technical">Technical Focus</SelectItem>
+              <SelectItem value="creative">Creative Approach</SelectItem>
+              <SelectItem value="custom">Custom Prompt</SelectItem>
             </SelectContent>
           </Select>
 

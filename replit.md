@@ -23,6 +23,11 @@ Preferred communication style: Simple, everyday language.
   - Supports default, technical, creative, custom, and saved prompt templates
 - **User Settings Fix**: Fixed user settings save error by automatically adding `userId` from authenticated user
 - **Single AI Request**: Cover letter generation now uses only ONE AI request with the user's selected prompt
+- **Improved Prompt Selection UX**: Enhanced prompt template selection behavior:
+  - Saved prompts now appear at the top of the dropdown menu
+  - When a user saves a new prompt, it automatically becomes the selected template
+  - First saved prompt is auto-selected by default for new users
+  - User preferences are persistent across sessions
 
 # System Architecture
 
