@@ -114,7 +114,7 @@ export class AIClient {
 Return only JSON exactly matching the requested schema. No prose, no Markdown.
 Rules:
 1) Output Russian job titles (должности), nominative, market-common; include English only if it is common on hh.ru (e.g., QA, DevOps, Product Manager, Buyer).
-2) No fallbacks: if uncertain, return an empty array and a short machine-readable note in "meta".
+2) ALWAYS provide job titles when possible. Only return empty array if the input is completely nonsensical.
 3) Ban generic shells without a domain: "менеджер", "специалист", "ассистент", "координатор", "руководитель" unless they include a domain lexeme (e.g., по закупкам/маркетингу/продажам/разработке).
 4) No skills, duties, industries — only job titles.
 5) ≤ 5 words per title when possible. No duplicates or near-duplicates.
@@ -124,8 +124,8 @@ Rules:
 "${userInput}"
 
 Задача:
-1) ОСТОРОЖНО определи профессиональную область только если запрос однозначен. Если слово многозначно (например: "English" может быть преподавание, переводы, журналистика, туризм, международный бизнес), НЕ угадывай - оставь domain пустым.
-2) Сгенерируй до 20 релевантных НАЗВАНИЙ ДОЛЖНОСТЕЙ для поиска на hh.ru. Для многозначных терминов включи все возможные сферы применения.
+1) Определи профессиональную область только если запрос однозначен. Если слово многозначно (например: "English" может быть преподавание, переводы, журналистика, туризм, международный бизнес), оставь domain пустым.
+2) ВСЕГДА сгенерируй до 20 релевантных НАЗВАНИЙ ДОЛЖНОСТЕЙ для поиска на hh.ru. Для многозначных терминов обязательно включи варианты из ВСЕХ возможных сфер применения.
 3) Верни строго JSON по схеме:
 
 {
@@ -140,13 +140,7 @@ Rules:
   }
 }
 
-Если нет уверенных вариантов:
-{
-  "query": "${userInput}",
-  "domain": "",
-  "candidates": [],
-  "meta": {"total": 0, "note": "no_confident_titles"}
-}`;
+Примечание: Избегай возврата пустого массива candidates. Даже для многозначных запросов включай варианты из всех релевантных сфер.`;
 
     console.log(`🎯 Step 1: Generating candidates for: "${userInput}"`);
 
@@ -191,7 +185,7 @@ Rules:
 Return only JSON exactly matching the requested schema. No prose, no Markdown.
 Rules:
 1) Output Russian job titles (должности), nominative, market-common; include English only if it is common on hh.ru (e.g., QA, DevOps, Product Manager, Buyer).
-2) No fallbacks: if uncertain, return an empty array and a short machine-readable note in "meta".
+2) ALWAYS provide job titles when possible. Only return empty array if the input is completely nonsensical.
 3) Ban generic shells without a domain: "менеджер", "специалист", "ассистент", "координатор", "руководитель" unless they include a domain lexeme (e.g., по закупкам/маркетингу/продажам/разработке).
 4) No skills, duties, industries — only job titles.
 5) ≤ 5 words per title when possible. No duplicates or near-duplicates.
