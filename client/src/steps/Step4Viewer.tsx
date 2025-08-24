@@ -1443,10 +1443,40 @@ ${jobInfo.description}`;
                       {vacancyDetail.name}
                     </h1>
                     <div className="flex items-center text-slate-600 space-x-4 flex-wrap gap-y-2">
-                      <span className="flex items-center" data-testid="vacancy-company">
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        {vacancyDetail.employer.name}
-                      </span>
+                      <div className="flex flex-col" data-testid="vacancy-company">
+                        <span className="flex items-center">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          {vacancyDetail.employer.name}
+                        </span>
+                        {/* Employer Website Information */}
+                        <div className="ml-6 mt-1">
+                          {vacancyDetail.employer.site_url ? (
+                            <a
+                              href={vacancyDetail.employer.site_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                              data-testid="employer-website"
+                            >
+                              Company Website
+                            </a>
+                          ) : vacancyDetail.employer.alternate_url ? (
+                            <a
+                              href={vacancyDetail.employer.alternate_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                              data-testid="employer-hh-page"
+                            >
+                              Company Page on HH.ru
+                            </a>
+                          ) : (
+                            <span className="text-sm text-slate-400" data-testid="no-employer-website">
+                              No website found for the employer
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <span className="flex items-center" data-testid="vacancy-location">
                         <MapPin className="mr-2 h-4 w-4" />
                         {vacancyDetail.area.name}
@@ -1623,6 +1653,17 @@ ${jobInfo.description}`;
                     Generate Cover Letter
                   </Button>
                   {renderApplyButton()}
+                  {/* Apply on Company Site Button - if response_url is available */}
+                  {vacancyDetail.response_url && (
+                    <Button
+                      onClick={() => window.open(vacancyDetail.response_url, '_blank')}
+                      className="bg-purple-600 text-white hover:bg-purple-700"
+                      data-testid="apply-on-company-site-button"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Apply on company site
+                    </Button>
+                  )}
                 </div>
                 
                 <Button

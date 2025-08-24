@@ -798,13 +798,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const descriptionHtmlSanitized = sanitizeHTML(data.description || '');
       const sanitizeDuration = Date.now() - sanitizeStartTime;
 
+      // Fetch employer details if employer URL is available
+      let employerData: {
+        name: any;
+        url?: any;
+        alternate_url?: any;
+        site_url?: any;
+      } = { 
+        name: data.employer?.name,
+        url: data.employer?.url,
+        alternate_url: data.employer?.alternate_url
+      };
+
+      if (data.employer?.url) {
+        try {
+          const { data: fullEmployer } = await hhClient.getEmployer(data.employer.url);
+          employerData.site_url = fullEmployer.site_url;
+        } catch (error) {
+          console.warn('Failed to fetch employer details:', error);
+          // Continue with basic employer data
+        }
+      }
+
       const result = {
         id: data.id,
         name: data.name,
-        employer: { name: data.employer?.name },
+        employer: employerData,
         area: { name: data.area?.name },
         alternate_url: data.alternate_url,
         apply_alternate_url: data.apply_alternate_url,
+        response_url: data.response_url,
         descriptionHtmlSanitized,
         key_skills: data.key_skills || [],
         salary: data.salary,

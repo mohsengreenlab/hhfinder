@@ -131,12 +131,17 @@ export const hhVacancyDetailSchema = z.object({
   id: z.string(),
   name: z.string(),
   employer: z.object({
-    name: z.string()
+    name: z.string(),
+    url: z.string().optional(),
+    alternate_url: z.string().optional(),
+    site_url: z.string().optional()
   }),
   area: z.object({
     name: z.string()
   }),
   alternate_url: z.string(),
+  apply_alternate_url: z.string().optional(),
+  response_url: z.string().optional(),
   descriptionHtmlSanitized: z.string(),
   key_skills: z.array(z.object({
     name: z.string()

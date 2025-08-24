@@ -144,10 +144,16 @@ export interface HHVacanciesResponse {
 export interface HHVacancyDetail {
   id: string;
   name: string;
-  employer: { name: string };
+  employer: { 
+    name: string;
+    url?: string;
+    alternate_url?: string;
+    site_url?: string;
+  };
   area: { name: string };
   alternate_url: string;
   apply_alternate_url?: string;
+  response_url?: string;
   descriptionHtmlSanitized: string;
   key_skills: Array<{ name: string }>;
   salary: {

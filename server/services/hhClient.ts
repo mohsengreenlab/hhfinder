@@ -160,6 +160,12 @@ export class HHClient {
   async getVacancy(id: string): Promise<{ data: any; timing: any }> {
     return this.makeRequest(`/vacancies/${id}`);
   }
+
+  async getEmployer(employerUrl: string): Promise<{ data: any; timing: any }> {
+    // Extract employer ID from URL (e.g., https://api.hh.ru/employers/123 -> 123)
+    const employerId = employerUrl.split('/').pop();
+    return this.makeRequest(`/employers/${employerId}`);
+  }
 }
 
 export const hhClient = new HHClient();
